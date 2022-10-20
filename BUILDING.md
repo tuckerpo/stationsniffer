@@ -8,4 +8,4 @@
 
 ### Running:
 
-`sudo LD_PRELOAD=./radiotap-library/build/libradiotap.so ./pcap <interface>`
+`sudo LD_PRELOAD=./radiotap-library/build/libradiotap.so ./pcap <interface> <packet_cadence (mS)>`
