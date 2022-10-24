@@ -52,11 +52,18 @@ struct radiotap_fields {
     bool bad_fcs;               // bad frame control sequence, indicates that this is bogus crap.
 };
 
+struct rssi_measurement {
+    int8_t m_rssi_value;
+    uint16_t m_measurement_channel;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_measurement_timestamp;
+};
+
 class station {
     radiotap_fields m_rt_fields;
     std::array<uint8_t, ETH_ALEN> m_mac;
-    uint32_t m_rolling_rssi;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_last_rssi_measurement_timestamp;
+    uint32_t m_rssi_wma;
+    // the end of this vector will contain the most recent instantaneous measurement.
+    std::vector<rssi_measurement> m_rssi_measurements;
 
 public:
     station(uint8_t mac[ETH_ALEN])
@@ -76,14 +83,15 @@ public:
     }
     void update_rt_fields(const radiotap_fields &rt_f)
     {
-        m_rt_fields                       = rt_f;
-        m_last_rssi_measurement_timestamp = std::chrono::system_clock::now();
+        m_rt_fields = rt_f;
+        m_rssi_measurements.push_back(
+            {m_rt_fields.rssi, m_rt_fields.channel_number, std::chrono::system_clock::now()});
     }
     int16_t get_frequency() const { return m_rt_fields.channel_frequency; }
     uint16_t get_channel() const { return m_rt_fields.channel_number; }
     std::chrono::time_point<std::chrono::high_resolution_clock> get_last_rssi_meas_time() const
     {
-        return m_last_rssi_measurement_timestamp;
+        return m_rssi_measurements.back().m_measurement_timestamp;
     }
     bool is_timed_out_ms(std::chrono::milliseconds timeout_ms) const
     {
@@ -94,6 +102,29 @@ public:
     bool operator==(const station &other) const
     {
         return std::memcmp(this->get_mac().data(), other.get_mac().data(), ETH_ALEN) == 0;
+    }
+    // sum (x_1*w_1) + ... + (xn*wn) / sum(w_i)
+    void calculate_wma()
+    {
+        static std::chrono::milliseconds reference_time = std::chrono::milliseconds(5000);
+        auto now                                        = std::chrono::system_clock::now();
+
+        int32_t rssi_sum = 0;
+        int i            = 0;
+        int denom        = 0;
+
+        for (const auto &measurement : m_rssi_measurements) {
+            std::chrono::duration<double, std::milli> time_diff =
+                now - measurement.m_measurement_timestamp;
+            auto weight = (reference_time - time_diff).count();
+            if (weight < 0)
+                continue;
+            rssi_sum += (measurement.m_rssi_value * weight);
+            denom += weight;
+        }
+        if (denom != 0)
+            rssi_sum /= denom;
+        std::cout << "wma " << rssi_sum << std::endl;
     }
 };
 
@@ -111,6 +142,11 @@ template <typename Callback> void station_for_each(Callback cb)
         cb(sta);
 }
 
+template <typename Callback> void station_for_each_mutable(Callback cb)
+{
+    for (station &s : stations)
+        cb(s);
+}
 /**
  * @brief Walks every station and checks if they've been seen in at least timeout_ms milliseconds.
  * 
@@ -264,6 +300,8 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
 
     // do some housekeeping
     station_keepalive_check(stations, STATION_KEEPALIVE_TIMEOUT);
+
+    station_for_each_mutable([](station &s) { s.calculate_wma(); });
     return;
 }
 
