@@ -75,7 +75,7 @@ static std::vector<uint8_t *> whitelisted_macs;
 
 static std::vector<station> stations;
 
-static void stop_collecting_metrics(uint8_t mac[ETH_ALEN])
+[[maybe_unused]] static void stop_collecting_metrics(uint8_t mac[ETH_ALEN])
 {
     bool found = std::find_if(stations.begin(), stations.end(), [&mac](const station &s) {
                      return std::memcmp(mac, s.get_mac().data(), ETH_ALEN);
@@ -161,7 +161,6 @@ static void station_keepalive_check(std::vector<station> &station_list,
 static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_char *packet)
 {
     int err;
-    int i;
     struct ieee80211_radiotap_iterator iter;
     if (!stay_alive)
         pcap_breakloop((pcap_t *)args);

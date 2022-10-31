@@ -3,7 +3,7 @@
 
 station::station(uint8_t mac[ETH_ALEN])
 {
-    for (int i = 0; i < ETH_ALEN; i++)
+    for (size_t i = 0; i < ETH_ALEN; i++)
         m_mac[i] = mac[i];
 }
 
@@ -48,7 +48,6 @@ void station::calculate_wma()
     auto now                                        = std::chrono::system_clock::now();
 
     int32_t rssi_sum = 0;
-    int i            = 0;
     int denom        = 0;
 
     for (const auto &measurement : m_rssi_measurements) {

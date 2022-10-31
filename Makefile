@@ -1,7 +1,7 @@
 appname := pcap_rt
 
 CXX := g++
-CXXFLAGS := -Wall -std=c++17
+CXXFLAGS := -Wall -Werror -std=c++17
 
 srcfiles := $(shell find . -maxdepth 1 -name "*.cpp")
 objects  := $(patsubst %.cpp, %.o, $(srcfiles))
