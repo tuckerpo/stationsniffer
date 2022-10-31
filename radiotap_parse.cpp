@@ -45,6 +45,7 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
         case IEEE80211_RADIOTAP_TSFT:
             break;
         case IEEE80211_RADIOTAP_FLAGS:
+            rt_fields.bad_fcs = (uint8_t)*iter.this_arg & IEEE80211_RADIOTAP_F_BADFCS;
             break;
         case IEEE80211_RADIOTAP_RATE:
             break;
@@ -73,9 +74,6 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
         case IEEE80211_RADIOTAP_RTS_RETRIES:
         case IEEE80211_RADIOTAP_DATA_RETRIES:
             break;
-            break;
-        case IEEE80211_RADIOTAP_F_BADFCS:
-            rt_fields.bad_fcs = true;
             break;
         default:
             break;
