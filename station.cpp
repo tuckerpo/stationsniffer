@@ -31,6 +31,8 @@ std::chrono::time_point<std::chrono::high_resolution_clock> station::get_last_rs
 }
 bool station::is_timed_out_ms(std::chrono::milliseconds timeout_ms) const
 {
+    if (m_rssi_measurements.size() == 0)
+        return false;
     auto now                                          = std::chrono::system_clock::now();
     std::chrono::duration<double, std::milli> elapsed = now - get_last_rssi_meas_time();
     return elapsed > timeout_ms;
