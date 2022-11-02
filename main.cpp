@@ -267,15 +267,38 @@ int main(int argc, char **argv)
     };
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), argv[1]};
     char err[PCAP_ERRBUF_SIZE];
-    auto pcap_handle = pcap_open_live(pcap_params.device_name.c_str(), BUFSIZ, 1,
-                                      pcap_params.packet_cadence_ms, err);
+    auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
     if (!pcap_handle) {
-        std::cout << "Could not get a pcap handle on device '" << pcap_params.device_name
-                  << "', pcap error: " << err << std::endl;
+        std::cerr << " Could not create a pcap handle for device '" << pcap_params.device_name
+                  << "', err: " << err << std::endl;
         return 1;
     }
+    if (pcap_can_set_rfmon(pcap_handle)) {
+        std::cerr << "Device '" << pcap_params.device_name
+                  << "' cannot be put into promiscous mode -- bye!" << std::endl;
+        return 1;
+    }
+    pcap_set_timeout(pcap_handle, pcap_params.packet_cadence_ms);
     std::cout << "Got a handle to device '" << pcap_params.device_name << "'" << std::endl;
-
+    int pcap_tstamp_type = PCAP_TSTAMP_HOST;
+    int set_tstamp_err   = pcap_set_tstamp_type(pcap_handle, pcap_tstamp_type);
+    if (set_tstamp_err != 0) {
+        switch (set_tstamp_err) {
+        case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
+            std::cerr << "Could not set timestamping type '"
+                      << pcap_tstamp_type_val_to_name(pcap_tstamp_type) << "' -- not supported."
+                      << std::endl;
+            break;
+        default:
+            std::cerr << "Error setting pcap timestamp type: " << pcap_geterr(pcap_handle)
+                      << std::endl;
+            break;
+        }
+    }
+    if (pcap_activate(pcap_handle) != 0) {
+        std::cerr << "pcap_activate error: " << pcap_geterr(pcap_handle) << std::endl;
+        return 1;
+    }
     for (int sig : signals_of_interest) {
         std::signal(sig, [](int signum) { stay_alive = false; });
     }
