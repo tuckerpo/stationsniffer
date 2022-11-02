@@ -156,6 +156,31 @@ static void station_keepalive_check(std::vector<station> &station_list,
                    stations.end());
 }
 
+/**
+ * @brief Dump the timestamp types (name, description) that pcap sees that the platform supports to stdout.
+ * 
+ * For debugging.
+ * 
+ * @param pd pointer to a pcap_t handle.
+ */
+[[maybe_unused]] static void dump_timestamp_types(pcap_t *pd)
+{
+    int *p_timestamp_types = nullptr;
+    int n_timestamp_types  = pcap_list_tstamp_types(pd, &p_timestamp_types);
+    if (n_timestamp_types == PCAP_ERROR) {
+        std::cerr << "Error getting packet timestamping options: " << pcap_geterr(pd);
+        return;
+    }
+    std::cout << n_timestamp_types << " many timestamp types supported" << std::endl;
+    for (int i = 0; i < n_timestamp_types; i++) {
+        std::cout << "Type # " << i << " is " << pcap_tstamp_type_val_to_name(p_timestamp_types[i])
+                  << std::endl;
+        std::cout << "Type # " << i << " description "
+                  << pcap_tstamp_type_val_to_description(p_timestamp_types[i]) << std::endl;
+    }
+    pcap_free_tstamp_types(p_timestamp_types);
+}
+
 // typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 // const u_char *);
 static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_char *packet)
