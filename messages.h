@@ -40,10 +40,21 @@ enum class message_type_t : uint32_t {
 
 enum class error_code_t : uint32_t {
     /**
+     * @brief No error! Good to go.
+     * 
+     *
+     */
+    ERROR_OK = 0x00,
+    /**
      * @brief The station that was request to act upon is not known to this Agent.
      * 
      */
     ERROR_STA_NOT_KNOWN = 0x01,
+    /**
+     * @brief Client fed us a malformed message.
+     * 
+     */
+    ERROR_BAD_MESSAGE = 0x02,
 };
 
 /**
@@ -57,6 +68,10 @@ std::string error_code_to_string(const error_code_t &err_code)
     switch (err_code) {
     case error_code_t::ERROR_STA_NOT_KNOWN:
         return "ERROR_STA_NOT_KNOWN";
+    case error_code_t::ERROR_OK:
+        return "ERROR_OK";
+    case error_code_t::ERROR_BAD_MESSAGE:
+        return "ERROR_BAD_MESSAGE";
     default:
         break;
     }
