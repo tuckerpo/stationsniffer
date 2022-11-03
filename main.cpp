@@ -110,6 +110,18 @@ template <typename Callback> void station_for_each_mutable(Callback cb)
         cb(s);
 }
 
+station *get_station_by_mac(const uint8_t mac[ETH_ALEN])
+{
+    station *s = nullptr;
+    for (size_t i = 0; i < stations.size(); i++) {
+        if (std::memcmp(stations[i].get_mac().data(), mac, ETH_ALEN) == 0) {
+            s = &stations[i];
+            break;
+        }
+    }
+    return s;
+}
+
 /**
  * @brief Walks every station and checks if they've been seen in at least timeout_ms milliseconds.
  * 
