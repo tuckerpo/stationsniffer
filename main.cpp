@@ -280,11 +280,6 @@ int main(int argc, char **argv)
                   << "', err: " << err << std::endl;
         return 1;
     }
-    if (pcap_can_set_rfmon(pcap_handle)) {
-        std::cerr << "Device '" << pcap_params.device_name
-                  << "' cannot be put into promiscous mode -- bye!" << std::endl;
-        return 1;
-    }
     pcap_set_timeout(pcap_handle, pcap_params.packet_cadence_ms);
     std::cout << "Got a handle to device '" << pcap_params.device_name << "'" << std::endl;
     int pcap_tstamp_type = PCAP_TSTAMP_HOST;
