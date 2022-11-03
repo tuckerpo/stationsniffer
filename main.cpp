@@ -14,7 +14,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <string_view>
+#include <thread>
 #include <vector>
 
 // our stuff
@@ -56,12 +56,11 @@ void printMacToStream(std::ostream &os, unsigned char MACData[])
 
 template <typename Callback> static void print_usage_and(Callback cb)
 {
-    static constexpr std::string_view usage_str = "Usage: ./pcap <device> <packet_wait_time (mS)>";
+    static constexpr char usage_str[] =
+        "Usage: ./pcap <device> <packet_wait_time (mS)> <station timeout (mS)>";
     std::cout << usage_str << std::endl;
     cb();
 }
-
-static const std::chrono::milliseconds STATION_KEEPALIVE_TIMEOUT = std::chrono::milliseconds(5000);
 
 struct packet_capture_params {
     // how often do we process a packet?
@@ -185,12 +184,19 @@ static void station_keepalive_check(std::vector<station> &station_list,
 // const u_char *);
 static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_char *packet)
 {
+    constexpr static size_t radiotap_header_max_size_bytes = 2014;
     int err;
     struct ieee80211_radiotap_iterator iter;
     if (!stay_alive)
         pcap_breakloop((pcap_t *)args);
 
-    err = ieee80211_radiotap_iterator_init(&iter, (ieee80211_radiotap_header *)packet, 2014, NULL);
+    if (pcap_hdr->len == 0) {
+        std::cerr << "Packet of length zero, ignoring." << std::endl;
+        return;
+    }
+
+    err = ieee80211_radiotap_iterator_init(&iter, (ieee80211_radiotap_header *)packet,
+                                           radiotap_header_max_size_bytes, NULL);
     if (err) {
         printf("malformed radiotap header (init returns %d)\n", err);
         return;
@@ -232,9 +238,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     if (sta_it == stations.end())
         return;
     sta_it->update_rt_fields(rt_fields);
-
-    // do some housekeeping
-    station_keepalive_check(stations, STATION_KEEPALIVE_TIMEOUT);
+    sta_it->update_last_seen(pcap_hdr->ts.tv_sec);
 
     station_for_each_mutable([](station &s) { s.calculate_wma(); });
 
@@ -244,7 +248,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
         std::cout << std::dec << std::endl
                   << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
                   << " Channel " << s.get_channel() << " (" << s.get_frequency() << " mHz)"
-                  << std::endl;
+                  << " Last Seen " << s.get_last_seen_seconds() << std::endl;
     });
 
     return;
@@ -258,14 +262,17 @@ static int begin_packet_loop(pcap_t *pcap_handle, const packet_capture_params &p
 
 int main(int argc, char **argv)
 {
+    std::vector<std::thread> threads;
     std::cout << "Welcome to " << argv[0] << std::endl;
-    if (argc < 3)
+    if (argc < 4)
         print_usage_and([]() { exit(1); });
     const int signals_of_interest[2] = {
         SIGINT,
         SIGTERM,
     };
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), argv[1]};
+    std::chrono::milliseconds station_keepalive_timeout_ms =
+        std::chrono::milliseconds(std::stoi(argv[3], 0, 10));
     char err[PCAP_ERRBUF_SIZE];
     auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
     if (!pcap_handle) {
@@ -303,13 +310,30 @@ int main(int argc, char **argv)
         std::signal(sig, [](int signum) { stay_alive = false; });
     }
     // DEBUG
-    uint8_t station_of_interest[ETH_ALEN] = {0x88, 0xf0, 0x31, 0x79, 0xdc, 0x52};
-    register_station_of_interest(station_of_interest);
-    int loop_status = begin_packet_loop(pcap_handle, pcap_params, packet_cb, 0);
-    if (loop_status != PCAP_ERROR_BREAK) {
-        std::cout << "Unexpected pcap_loop exit code: " << loop_status << std::endl;
+    uint8_t tuckers_cellphone[ETH_ALEN] = {0x6a, 0x14, 0x8b, 0x46, 0x8e, 0xdd};
+    register_station_of_interest(tuckers_cellphone);
+    std::thread pcap_thread = std::thread([&pcap_handle, pcap_params]() {
+        int loop_status = begin_packet_loop(pcap_handle, pcap_params, packet_cb, 0);
+        if (loop_status != PCAP_ERROR_BREAK) {
+            std::cerr << "Unexpected pcap_loop exit code: " << loop_status << std::endl;
+        }
+        pcap_close(pcap_handle);
+    });
+    threads.push_back(std::move(pcap_thread));
+    std::thread station_health_monitoring_thread = std::thread([&station_keepalive_timeout_ms]() {
+        while (stay_alive) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            station_keepalive_check(stations, station_keepalive_timeout_ms);
+        }
+    });
+    threads.push_back(std::move(station_health_monitoring_thread));
+    for (std::thread &thr : threads) {
+        if (!thr.joinable()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        } else {
+            thr.join();
+        }
     }
-    pcap_close(pcap_handle);
     std::cout << "Done sniffing on '" << pcap_params.device_name << "', bye!" << std::endl;
     return 0;
 }

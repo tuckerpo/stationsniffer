@@ -9,7 +9,7 @@ objects  := $(patsubst %.cpp, %.o, $(srcfiles))
 all: $(appname)
 
 $(appname): $(objects)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(appname) $(objects) $(LDLIBS) -lpcap -lradiotap
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(appname) $(objects) $(LDLIBS) -lpcap -lradiotap -lpthread
 
 depend: .depend
 
