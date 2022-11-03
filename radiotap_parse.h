@@ -3,9 +3,9 @@
 #include <cstdint>
 
 // rt stuff
+#include "platform.h"
 #include "radiotap.h"
 #include "radiotap_iter.h"
-#include "platform.h"
 
 struct radiotap_fields;
 
