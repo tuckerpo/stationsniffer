@@ -16,6 +16,7 @@ class station {
     radiotap_fields m_rt_fields;
     std::array<uint8_t, ETH_ALEN> m_mac;
     int8_t m_rssi_wma;
+    time_t m_last_seen_time;
     // the end of this vector will contain the most recent instantaneous measurement.
     std::vector<rssi_measurement> m_rssi_measurements;
 
@@ -59,17 +60,11 @@ public:
     uint16_t get_channel() const;
     int8_t get_wma_rssi() const;
     /**
-     * @brief Get the measurement time of the most recent RSSI reading. Used to check if a station is 'alive' still.
-     * 
-     * @return std::chrono::time_point<std::chrono::high_resolution_clock> the timestamp.
-     */
-    std::chrono::time_point<std::chrono::high_resolution_clock> get_last_rssi_meas_time() const;
-    /**
      * @brief Determine if a station is alive still.
      * 
      * @param timeout_ms The timeout value (milliseconds) threshold. If there has not been a new RSSI measurement made for this station in `timeout_ms`, then it is considered timedout.
      * @return true if the station is timed out.
-     * @return false otherwise.
+     * @return false if the station is NOT timed out, OR if we've never seen an RSSI measurement for this station.
      */
     bool is_timed_out_ms(std::chrono::milliseconds timeout_ms) const;
     bool operator==(const station &other) const;
@@ -81,4 +76,17 @@ public:
      * (x_1*w_1) + ... + (x_n*w_n) / sum(w_i) -- where x_i is an RSSI measurement value in dBm, and w_i is it's weight.
      */
     void calculate_wma();
+    /**
+     * @brief Unix timestamp of the last time a packet from this station was seen, in seconds.
+     * 
+     * @return time_t Unix timestamp of this station's last seen packet, in seconds.
+     */
+    time_t get_last_seen_seconds() const;
+
+    /**
+     * @brief Update this station's last_seen field - the timestamp of the last captured packet from this station.
+     * 
+     * @param time_seconds the unix time of the last packet received for this station, in seconds.
+     */
+    void update_last_seen(time_t time_seconds);
 };

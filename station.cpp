@@ -25,23 +25,20 @@ void station::update_rt_fields(const radiotap_fields &rt_f)
 int16_t station::get_frequency() const { return m_rt_fields.channel_frequency; }
 uint16_t station::get_channel() const { return m_rt_fields.channel_number; }
 int8_t station::get_wma_rssi() const { return m_rssi_wma; }
-std::chrono::time_point<std::chrono::high_resolution_clock> station::get_last_rssi_meas_time() const
-{
-    return m_rssi_measurements.back().m_measurement_timestamp;
-}
+
 bool station::is_timed_out_ms(std::chrono::milliseconds timeout_ms) const
 {
     if (m_rssi_measurements.size() == 0)
         return false;
-    auto now                                          = std::chrono::system_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = now - get_last_rssi_meas_time();
-    return elapsed > timeout_ms;
+    time_t time_now_seconds   = std::time(nullptr);
+    time_t time_delta_seconds = time_now_seconds - get_last_seen_seconds();
+    return (time_delta_seconds * 1000 >= timeout_ms.count());
 }
 bool station::operator==(const station &other) const
 {
     return std::memcmp(this->get_mac().data(), other.get_mac().data(), ETH_ALEN) == 0;
 }
-// sum (x_1*w_1) + ... + (xn*wn) / sum(w_i)
+
 void station::calculate_wma()
 {
     static std::chrono::milliseconds reference_time = std::chrono::milliseconds(5000);
@@ -63,3 +60,7 @@ void station::calculate_wma()
         rssi_sum /= denom;
     m_rssi_wma = rssi_sum;
 }
+
+time_t station::get_last_seen_seconds() const { return m_last_seen_time; }
+
+void station::update_last_seen(time_t time_sec) { m_last_seen_time = time_sec; }
