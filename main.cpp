@@ -18,6 +18,7 @@
 #include <vector>
 
 // our stuff
+#include "messages.h"
 #include "radiotap_parse.h"
 #include "station.h"
 
@@ -73,29 +74,6 @@ struct packet_capture_params {
 static std::vector<uint8_t *> whitelisted_macs;
 
 static std::vector<station> stations;
-
-[[maybe_unused]] static void stop_collecting_metrics(uint8_t mac[ETH_ALEN])
-{
-    bool found = std::find_if(stations.begin(), stations.end(), [&mac](const station &s) {
-                     return std::memcmp(mac, s.get_mac().data(), ETH_ALEN);
-                 }) != stations.end();
-
-    // this is not an error case -- we should return true here.
-    if (!found) {
-        std::cout << "Station " << std::hex << mac
-                  << " not found, ignoring request to stop collecting metrics." << std::endl;
-        return;
-    }
-
-    std::remove_if(whitelisted_macs.begin(), whitelisted_macs.end(),
-                   [&mac](const uint8_t *whitelisted_mac) {
-                       return std::memcmp(whitelisted_mac, mac, ETH_ALEN) == 0;
-                   });
-
-    std::remove_if(stations.begin(), stations.end(), [&mac](const station &s) {
-        return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
-    });
-}
 
 static void register_station_of_interest(uint8_t mac[ETH_ALEN])
 {
