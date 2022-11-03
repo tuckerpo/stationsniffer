@@ -180,6 +180,19 @@ static void station_keepalive_check(std::vector<station> &station_list,
     pcap_free_tstamp_types(p_timestamp_types);
 }
 
+/**
+ * @brief Return true if the address 'mac' is a multicast address.
+ * 
+ * @param mac the mac address of interest
+ * @return true if the address is broadcast (ff:ff:ff:ff:ff:ff)
+ * @return false otherwise
+ */
+static bool address_is_multicast(const uint8_t mac[ETH_ALEN])
+{
+    return ((mac[0] & 0xff) == 0xff) && ((mac[1] & 0xff) == 0xff) && ((mac[2] & 0xff) == 0xff) &&
+           ((mac[3] & 0xff) == 0xff) && ((mac[4] & 0xff) == 0xff) && ((mac[5] & 0xff) == 0xff);
+}
+
 // typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 // const u_char *);
 static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_char *packet)
@@ -203,24 +216,34 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     }
     const size_t eth_hdr_offset = iter._max_length;
     struct ieee80211_hdr *hdr   = (struct ieee80211_hdr *)(packet + eth_hdr_offset);
-    auto it =
-        std::find_if(whitelisted_macs.begin(), whitelisted_macs.end(), [&hdr](const uint8_t *mac) {
-            return std::memcmp(hdr->addr2, mac, ETH_ALEN) == 0;
-        });
-    if (it != whitelisted_macs.end()) {
 
-        // check if it's already accounted for.
-        auto station_it = std::find_if(stations.begin(), stations.end(), [&hdr](const station &s) {
-            return std::memcmp(hdr->addr2, s.get_mac().data(), ETH_ALEN) == 0;
-        });
-        // if it's not already being tracked, and we care about it, add it to the station list.
-        if (station_it == stations.end()) {
-            stations.push_back(hdr->addr2);
+    bool capture_all = (std::find_if(whitelisted_macs.begin(), whitelisted_macs.end(),
+                                     [](const uint8_t *whitelisted_mac) {
+                                         return address_is_multicast(whitelisted_mac);
+                                     })) != whitelisted_macs.end();
+    if (!capture_all) {
+        auto it = std::find_if(
+            whitelisted_macs.begin(), whitelisted_macs.end(),
+            [&hdr](const uint8_t *mac) { return std::memcmp(hdr->addr2, mac, ETH_ALEN) == 0; });
+        if (it != whitelisted_macs.end()) {
+
+            // check if it's already accounted for.
+            auto station_it =
+                std::find_if(stations.begin(), stations.end(), [&hdr](const station &s) {
+                    return std::memcmp(hdr->addr2, s.get_mac().data(), ETH_ALEN) == 0;
+                });
+            // if it's not already being tracked, and we care about it, add it to the station list.
+            if (station_it == stations.end()) {
+                stations.push_back(hdr->addr2);
+            }
+
+        } else {
+            // no work to be done, it's not a packet from a station we care about. bail.
+            return;
         }
-
     } else {
-        // no work to be done, it's not a packet from a station we care about. bail.
-        return;
+        // we're capturing everything (whitelisted mac is broadcast addr)
+        stations.push_back(hdr->addr2);
     }
 
     radiotap_fields rt_fields;
