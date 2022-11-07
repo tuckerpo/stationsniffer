@@ -126,6 +126,10 @@ struct message_header {
     uint32_t checksum;
 } __attribute__((packed));
 
+struct message_response {
+    error_code_t error_code;
+};
+
 static_assert(
     sizeof(sta_lm) == 11,
     "sta_lm struct should be 11 bytes (one byte for RSSI, 2 for channel number, 8 for timestamp)");
