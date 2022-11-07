@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 struct sta_lm {
+    int32_t error_code;
     int8_t rssi;
     int16_t channel_number;
     uint64_t timestamp;
@@ -185,8 +186,13 @@ int main(int argc, char **argv)
             return 1;
         }
         struct sta_lm *link_metrics_response = (struct sta_lm *)rxbuf;
-        printf("STA MAC %s channel number %d rssi %d timestamp %" PRIu64 "\n", sta_mac,
-               link_metrics_response->channel_number, link_metrics_response->rssi,
-               link_metrics_response->timestamp);
+        if (link_metrics_response->error_code != ERROR_OK) {
+            printf("Error code! %d (%s)\n", link_metrics_response->error_code,
+                   err_type_2_str(link_metrics_response->error_code));
+        } else {
+            printf("STA MAC %s channel number %d rssi %d timestamp %" PRIu64 "\n", sta_mac,
+                   link_metrics_response->channel_number, link_metrics_response->rssi,
+                   link_metrics_response->timestamp);
+        }
     }
 }

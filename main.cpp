@@ -315,9 +315,9 @@ template <typename T> static bool send_message_response(const T &response, int f
  * @return true if the message was handled
  * @return false otherwise.
  */
-static bool handle_message(const message_header &hdr, int from_fd)
+static bool handle_message(const message_request_header &hdr, int from_fd)
 {
-    message_response response;
+    message_response_header response;
     error_code_t response_error_code = error_code_t::ERROR_OK;
     switch (hdr.message_type) {
     case message_type_t::MSG_REGISTER_STA: {
@@ -330,9 +330,10 @@ static bool handle_message(const message_header &hdr, int from_fd)
         sta_lm station_link_metrics{};
         station *s = get_station_by_mac(hdr.mac);
         if (s) {
-            station_link_metrics.rssi           = s->get_rssi();
-            station_link_metrics.channel_number = s->get_channel();
-            station_link_metrics.timestamp      = s->get_last_seen_seconds();
+            station_link_metrics.rssi                = s->get_rssi();
+            station_link_metrics.channel_number      = s->get_channel();
+            station_link_metrics.timestamp           = s->get_last_seen_seconds();
+            station_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {
             response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
             std::cout << "STA LM request for ";
@@ -346,10 +347,11 @@ static bool handle_message(const message_header &hdr, int from_fd)
         sta_wma_lm station_wma_link_metrics{};
         station *s = get_station_by_mac(hdr.mac);
         if (s) {
-            station_wma_link_metrics.lm.rssi           = s->get_rssi();
-            station_wma_link_metrics.lm.channel_number = s->get_channel();
-            station_wma_link_metrics.lm.timestamp      = s->get_last_seen_seconds();
-            station_wma_link_metrics.wma_rssi          = s->get_wma_rssi();
+            station_wma_link_metrics.lm.rssi             = s->get_rssi();
+            station_wma_link_metrics.lm.channel_number   = s->get_channel();
+            station_wma_link_metrics.lm.timestamp        = s->get_last_seen_seconds();
+            station_wma_link_metrics.wma_rssi            = s->get_wma_rssi();
+            station_wma_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {
             response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
             std::cout << "STA WMA LM request for ";
@@ -453,7 +455,7 @@ static void serve(const std::string &socket_path)
                         remove_from_poll_fdset(pfds, i, fd_count);
                     } else {
                         // good data.
-                        message_header *hdr = (message_header *)rxbuf;
+                        message_request_header *hdr = (message_request_header *)rxbuf;
                         std::cout << "Handling a message of type: "
                                   << message_type_to_string(hdr->message_type) << std::endl;
                         if (!handle_message(*hdr, pfds[i].fd)) {
