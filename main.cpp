@@ -75,6 +75,19 @@ static std::vector<uint8_t *> whitelisted_macs;
 
 static std::vector<station> stations;
 
+[[maybe_unused]] static void unregister_station(uint8_t mac[ETH_ALEN])
+{
+
+    std::remove_if(whitelisted_macs.begin(), whitelisted_macs.end(),
+                   [&mac](const uint8_t *whitelisted_mac) {
+                       return std::memcmp(whitelisted_mac, mac, ETH_ALEN) == 0;
+                   });
+
+    std::remove_if(stations.begin(), stations.end(), [&mac](const station &s) {
+        return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
+    });
+}
+
 static void register_station_of_interest(uint8_t mac[ETH_ALEN])
 {
     for (const station &s : stations) {
