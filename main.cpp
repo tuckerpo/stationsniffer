@@ -61,7 +61,7 @@ void printMacToStream(std::ostream &os, const unsigned char MACData[])
 template <typename Callback> static void print_usage_and(Callback cb)
 {
     static constexpr char usage_str[] =
-        "Usage: ./pcap_rt <device> <packet_wait_time (mS)> <station timeout (mS)>";
+        "Usage: ./station-sniffer <device> <packet_wait_time (ms)> <station timeout (ms)>";
     std::cout << usage_str << std::endl;
     cb();
 }
