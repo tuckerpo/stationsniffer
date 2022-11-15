@@ -30,7 +30,7 @@ StationSniffer will take the interface that it is fed and put it into promiscuou
 
 Otherwise, run:
 
-```./pcap_rt <interface_name> <packet_periodicity> <station_timeout_threshold>```
+```./station-sniffer <interface_name> <packet_periodicity> <station_timeout_threshold>```
 
 
 ### **Creating a virtual interface using `iw`**
