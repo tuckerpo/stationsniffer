@@ -1,4 +1,4 @@
-appname := pcap_rt
+appname := station-sniffer
 
 CXX := g++
 CXXFLAGS := -Wall -Werror -std=c++17
