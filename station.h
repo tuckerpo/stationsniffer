@@ -21,9 +21,9 @@ class station {
     std::vector<rssi_measurement> m_rssi_measurements;
 
 public:
-    station(uint8_t mac[ETH_ALEN]);
-
-    station(const std::array<uint8_t, ETH_ALEN> &mac);
+    explicit station(uint8_t mac[ETH_ALEN]);
+    explicit station(const uint8_t mac[ETH_ALEN]);
+    explicit station(const std::array<uint8_t, ETH_ALEN> &mac);
     virtual ~station() = default;
     /**
      * @brief Get this station's MAC address.
@@ -89,4 +89,11 @@ public:
      * @param time_seconds the unix time of the last packet received for this station, in seconds.
      */
     void update_last_seen(time_t time_seconds);
+
+    /**
+     * @brief Determine if this station's MAC address is multicast.
+     *
+     * @return true if this station's MAC is ff:ff:ff:ff:ff:ff, otherwise false.
+     */
+    bool addr_is_multicast() const;
 };
