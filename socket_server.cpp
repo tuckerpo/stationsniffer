@@ -23,8 +23,12 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
 {
     static constexpr int listen_backlog = 10;
 
-    int fd_size  = 5;
-    pollfd *pfds = (pollfd *)malloc(sizeof(pollfd *) * fd_size);
+    int fd_size     = 5;
+    pollfd *pfds    = (pollfd *)malloc(sizeof(pollfd *) * fd_size);
+    const auto bail = [&pfds]() {
+        free(pfds);
+        return false;
+    };
 
     sockaddr_un remote = {0};
     sockaddr_un local  = {0};
@@ -38,11 +42,11 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
     unlink(path.c_str());
     if (bind(m_server_fd, (sockaddr *)&local, sizeof(local)) < 0) {
         perror("bind");
-        return false;
+        bail();
     }
     if (listen(m_server_fd, listen_backlog) < 0) {
         perror("listen");
-        return false;
+        bail();
     }
 
     pfds[0].fd     = m_server_fd;
