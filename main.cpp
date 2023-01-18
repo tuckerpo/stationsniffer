@@ -24,6 +24,7 @@
 #include "messages.h"
 #include "radiotap_parse.h"
 #include "station.h"
+#include "station_manager.h"
 
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MACSTRFMT "%02x:%02x:%02x:%02x:%02x:%02x"
@@ -60,8 +61,7 @@ void printMacToStream(std::ostream &os, const unsigned char MACData[])
 
 template <typename Callback> static void print_usage_and(Callback cb)
 {
-    static constexpr char usage_str[] =
-        "Usage: ./station-sniffer <device> <packet_wait_time (ms)> <station timeout (ms)>";
+    static constexpr char usage_str[] = "Usage: ./station-sniffer <device> <packet_wait_time (ms)>";
     std::cout << usage_str << std::endl;
     cb();
 }
@@ -72,98 +72,6 @@ struct packet_capture_params {
     // the name of the interface that we're collecting on.
     std::string device_name;
 };
-
-// list of macs that we want to measure for.
-static std::vector<const uint8_t *> whitelisted_macs;
-
-static std::vector<station> stations;
-
-static void unregister_station(const uint8_t mac[ETH_ALEN])
-{
-
-    std::remove_if(whitelisted_macs.begin(), whitelisted_macs.end(),
-                   [&mac](const uint8_t *whitelisted_mac) {
-                       return std::memcmp(whitelisted_mac, mac, ETH_ALEN) == 0;
-                   });
-
-    std::remove_if(stations.begin(), stations.end(), [&mac](const station &s) {
-        return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
-    });
-}
-
-static void register_station_of_interest(const uint8_t mac[ETH_ALEN])
-{
-    std::cout << "Request to register ";
-    printMacToStream(std::cout, mac);
-    std::cout << " as a station of interest " << std::endl;
-    for (const station &s : stations) {
-        if (std::memcmp(mac, s.get_mac().data(), ETH_ALEN) == 0) {
-            std::cout << " Station ";
-            printMacToStream(std::cout, mac);
-            std::cout << " already known -- ignoring registation request" << std::endl;
-        }
-    }
-    whitelisted_macs.push_back(mac);
-}
-
-/**
- * @brief Call 'cb' on every station in the station list (immutable).
- * 
- * @tparam Callback 
- * @param cb the callback to call with a station passed in.
- */
-template <typename Callback> void station_for_each(Callback cb)
-{
-    for (const station &sta : stations)
-        cb(sta);
-}
-
-/**
- * @brief Call 'cb' on every station in the station list (mutable).
- * 
- * @tparam Callback 
- * @param cb the callback to call with a station passed in. 
- */
-template <typename Callback> void station_for_each_mutable(Callback cb)
-{
-    for (station &s : stations)
-        cb(s);
-}
-
-station *get_station_by_mac(const uint8_t mac[ETH_ALEN])
-{
-    station *s = nullptr;
-    for (size_t i = 0; i < stations.size(); i++) {
-        if (std::memcmp(stations[i].get_mac().data(), mac, ETH_ALEN) == 0) {
-            s = &stations[i];
-            break;
-        }
-    }
-    return s;
-}
-
-/**
- * @brief Walks every station and checks if they've been seen in at least timeout_ms milliseconds.
- * 
- * If not, they are removed from station_list
- * 
- * @param station_list the list of stations to walk
- */
-static void station_keepalive_check(std::vector<station> &station_list,
-                                    std::chrono::milliseconds timeout_ms)
-{
-    stations.erase(std::remove_if(stations.begin(), stations.end(),
-                                  [&timeout_ms](const station &s) {
-                                      bool timed_out = s.is_timed_out_ms(timeout_ms);
-                                      if (timed_out) {
-                                          printf("Station " MACSTRFMT
-                                                 " has timed out. Removing it.\n",
-                                                 MAC2STR(s.get_mac().data()));
-                                      }
-                                      return timed_out;
-                                  }),
-                   stations.end());
-}
 
 /**
  * @brief Dump the timestamp types (name, description) that pcap sees that the platform supports to stdout.
@@ -190,18 +98,7 @@ static void station_keepalive_check(std::vector<station> &station_list,
     pcap_free_tstamp_types(p_timestamp_types);
 }
 
-/**
- * @brief Return true if the address 'mac' is a multicast address.
- * 
- * @param mac the mac address of interest
- * @return true if the address is broadcast (ff:ff:ff:ff:ff:ff)
- * @return false otherwise
- */
-static bool address_is_multicast(const uint8_t mac[ETH_ALEN])
-{
-    return ((mac[0] & 0xff) == 0xff) && ((mac[1] & 0xff) == 0xff) && ((mac[2] & 0xff) == 0xff) &&
-           ((mac[3] & 0xff) == 0xff) && ((mac[4] & 0xff) == 0xff) && ((mac[5] & 0xff) == 0xff);
-}
+static station_manager sta_manager;
 
 // typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 // const u_char *);
@@ -227,63 +124,33 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     const size_t eth_hdr_offset = iter._max_length;
     struct ieee80211_hdr *hdr   = (struct ieee80211_hdr *)(packet + eth_hdr_offset);
 
-    bool capture_all = (std::find_if(whitelisted_macs.begin(), whitelisted_macs.end(),
-                                     [](const uint8_t *whitelisted_mac) {
-                                         return address_is_multicast(whitelisted_mac);
-                                     })) != whitelisted_macs.end();
-    if (!capture_all) {
-        auto it = std::find_if(
-            whitelisted_macs.begin(), whitelisted_macs.end(),
-            [&hdr](const uint8_t *mac) { return std::memcmp(hdr->addr2, mac, ETH_ALEN) == 0; });
-        if (it != whitelisted_macs.end()) {
+    // If we're capturing wildcard source address, or if this is a station of interest to us,
+    // parse this packet's radiotap header and update the station objects.
+    if (sta_manager.should_capture_all_traffic() ||
+        sta_manager.station_is_whitelisted(hdr->addr2)) {
+        sta_manager.add_station(hdr->addr2);
+        radiotap_fields rt_fields;
+        parse_radiotap_buf(iter, (uint8_t *)packet, radiotap_header_max_size_bytes, rt_fields);
 
-            // check if it's already accounted for.
-            auto station_it =
-                std::find_if(stations.begin(), stations.end(), [&hdr](const station &s) {
-                    return std::memcmp(hdr->addr2, s.get_mac().data(), ETH_ALEN) == 0;
-                });
-            // if it's not already being tracked, and we care about it, add it to the station list.
-            if (station_it == stations.end()) {
-                stations.push_back(hdr->addr2);
-            }
-
-        } else {
-            // no work to be done, it's not a packet from a station we care about. bail.
-            return;
+        // If we got good radiotap data, update stations.
+        // Otherwise, just ignore the packet and do not touch any stations.
+        if (!rt_fields.bad_fcs) {
+            sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
+            sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
         }
-    } else {
-        // we're capturing everything (whitelisted mac is broadcast addr)
-        stations.push_back(hdr->addr2);
     }
 
-    radiotap_fields rt_fields;
-    parse_radiotap_buf(iter, (uint8_t *)packet, 2014, rt_fields);
-
-    if (rt_fields.bad_fcs) {
-        std::cout << "Malformed radiotap header." << std::endl;
-        return;
-    }
-
-    auto sta_it = std::find_if(stations.begin(), stations.end(), [&hdr](const station &s) {
-        return std::memcmp(s.get_mac().data(), hdr->addr2, ETH_ALEN) == 0;
-    });
-    // this shouldnt happen, but hey.
-    if (sta_it == stations.end())
-        return;
-    sta_it->update_rt_fields(rt_fields);
-    sta_it->update_last_seen(pcap_hdr->ts.tv_sec);
-
-    station_for_each_mutable([](station &s) { s.calculate_wma(); });
-
-    station_for_each([](const station &s) {
+    // Have all known stations calculate their WMA even if they have not had recent measurements,
+    // because we care if there's temporally stale RSSI data.
+    sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
+    sta_manager.for_each_station([](const station &s) {
         std::cout << "Station ";
         printMacToStream(std::cout, s.get_mac().data());
         std::cout << std::dec << std::endl
                   << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
-                  << " Channel " << s.get_channel() << " (" << s.get_frequency() << " mHz)"
-                  << " Last Seen " << s.get_last_seen_seconds() << std::endl;
+                  << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
+                  << std::endl;
     });
-
     return;
 }
 
@@ -321,18 +188,19 @@ static bool handle_message(const message_request_header &hdr, int from_fd)
     error_code_t response_error_code = error_code_t::ERROR_OK;
     switch (hdr.message_type) {
     case message_type_t::MSG_REGISTER_STA: {
-        register_station_of_interest(hdr.mac);
+        sta_manager.register_station_of_interest(hdr.mac);
     } break;
     case message_type_t::MSG_UNREGISTER_STA: {
-        unregister_station(hdr.mac);
+        sta_manager.remove_station(hdr.mac);
     } break;
     case message_type_t::MSG_GET_STA_STATS: {
         sta_lm station_link_metrics{};
-        station *s = get_station_by_mac(hdr.mac);
-        if (s) {
-            station_link_metrics.rssi                = s->get_rssi();
-            station_link_metrics.channel_number      = s->get_channel();
-            station_link_metrics.timestamp           = s->get_last_seen_seconds();
+        auto sta = sta_manager.get_sta_by_mac(hdr.mac);
+        if (sta.has_value()) {
+            const station s                          = sta.value();
+            station_link_metrics.rssi                = s.get_rssi();
+            station_link_metrics.channel_number      = s.get_channel();
+            station_link_metrics.timestamp           = s.get_last_seen_seconds();
             station_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {
             response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
@@ -345,12 +213,13 @@ static bool handle_message(const message_request_header &hdr, int from_fd)
     } break;
     case message_type_t::MSG_GET_STA_WMI_STATS: {
         sta_wma_lm station_wma_link_metrics{};
-        station *s = get_station_by_mac(hdr.mac);
-        if (s) {
-            station_wma_link_metrics.lm.rssi             = s->get_rssi();
-            station_wma_link_metrics.lm.channel_number   = s->get_channel();
-            station_wma_link_metrics.lm.timestamp        = s->get_last_seen_seconds();
-            station_wma_link_metrics.wma_rssi            = s->get_wma_rssi();
+        auto sta = sta_manager.get_sta_by_mac(hdr.mac);
+        if (sta.has_value()) {
+            const station s                              = sta.value();
+            station_wma_link_metrics.lm.rssi             = s.get_rssi();
+            station_wma_link_metrics.lm.channel_number   = s.get_channel();
+            station_wma_link_metrics.lm.timestamp        = s.get_last_seen_seconds();
+            station_wma_link_metrics.wma_rssi            = s.get_wma_rssi();
             station_wma_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {
             response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
@@ -474,15 +343,13 @@ int main(int argc, char **argv)
 {
     std::vector<std::thread> threads;
     std::cout << "Welcome to " << argv[0] << std::endl;
-    if (argc < 4)
+    if (argc < 3)
         print_usage_and([]() { exit(1); });
     const int signals_of_interest[2] = {
         SIGINT,
         SIGTERM,
     };
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), argv[1]};
-    std::chrono::milliseconds station_keepalive_timeout_ms =
-        std::chrono::milliseconds(std::stoi(argv[3], 0, 10));
     char err[PCAP_ERRBUF_SIZE];
     auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
     if (!pcap_handle) {
@@ -522,13 +389,6 @@ int main(int argc, char **argv)
         pcap_close(pcap_handle);
     });
     threads.push_back(std::move(pcap_thread));
-    std::thread station_health_monitoring_thread = std::thread([&station_keepalive_timeout_ms]() {
-        while (stay_alive) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            station_keepalive_check(stations, station_keepalive_timeout_ms);
-        }
-    });
-    threads.push_back(std::move(station_health_monitoring_thread));
     // now, start the unix socket IPC thread.
     const std::string socket_server_path = "/tmp/uslm_socket";
     std::thread unix_socket_server_thread =
