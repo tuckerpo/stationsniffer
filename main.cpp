@@ -21,8 +21,9 @@
 #include <vector>
 
 // our stuff
-#include "messages.h"
+#include "message_handler.h"
 #include "radiotap_parse.h"
+#include "socket_server.h"
 #include "station.h"
 #include "station_manager.h"
 
@@ -160,185 +161,6 @@ static int begin_packet_loop(pcap_t *pcap_handle, const packet_capture_params &p
     return pcap_loop(pcap_handle, mode, callback, (u_char *)pcap_handle);
 }
 
-/**
- * @brief Send a response.
- * 
- * @tparam T the message response type
- * @param response the message reponse
- * @param fd the file descriptor to send to
- * @return true if send() succeeds
- * @return false otherwise
- */
-template <typename T> static bool send_message_response(const T &response, int fd)
-{
-    return (send(fd, &response, sizeof(T), 0) != -1);
-}
-
-/**
- * @brief Handle an incoming message!
- * 
- * @param hdr The message header. 
- * @param from_fd The file descriptor it came from.
- * @return true if the message was handled
- * @return false otherwise.
- */
-static bool handle_message(const message_request_header &hdr, int from_fd)
-{
-    message_response_header response;
-    error_code_t response_error_code = error_code_t::ERROR_OK;
-    switch (hdr.message_type) {
-    case message_type_t::MSG_REGISTER_STA: {
-        sta_manager.register_station_of_interest(hdr.mac);
-    } break;
-    case message_type_t::MSG_UNREGISTER_STA: {
-        sta_manager.remove_station(hdr.mac);
-    } break;
-    case message_type_t::MSG_GET_STA_STATS: {
-        sta_lm station_link_metrics{};
-        auto sta = sta_manager.get_sta_by_mac(hdr.mac);
-        if (sta.has_value()) {
-            const station s                          = sta.value();
-            station_link_metrics.rssi                = s.get_rssi();
-            station_link_metrics.channel_number      = s.get_channel();
-            station_link_metrics.timestamp           = s.get_last_seen_seconds();
-            station_link_metrics.response.error_code = error_code_t::ERROR_OK;
-        } else {
-            response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
-            std::cout << "STA LM request for ";
-            printMacToStream(std::cout, hdr.mac);
-            std::cout << " not found in station list!" << std::endl;
-            break;
-        }
-        return send_message_response<sta_lm>(station_link_metrics, from_fd);
-    } break;
-    case message_type_t::MSG_GET_STA_WMI_STATS: {
-        sta_wma_lm station_wma_link_metrics{};
-        auto sta = sta_manager.get_sta_by_mac(hdr.mac);
-        if (sta.has_value()) {
-            const station s                              = sta.value();
-            station_wma_link_metrics.lm.rssi             = s.get_rssi();
-            station_wma_link_metrics.lm.channel_number   = s.get_channel();
-            station_wma_link_metrics.lm.timestamp        = s.get_last_seen_seconds();
-            station_wma_link_metrics.wma_rssi            = s.get_wma_rssi();
-            station_wma_link_metrics.response.error_code = error_code_t::ERROR_OK;
-        } else {
-            response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;
-            std::cout << "STA WMA LM request for ";
-            printMacToStream(std::cout, hdr.mac);
-            std::cout << ", station not known!" << std::endl;
-            break;
-        }
-        return send_message_response<sta_wma_lm>(station_wma_link_metrics, from_fd);
-    } break;
-    case message_type_t::MSG_CHANGE_PACKET_PERIODICITY_MS:
-        // fall thru
-    case message_type_t::MSG_CHANGE_KEEPALIVE_TIMEOUT_MS:
-        // fall thru
-    default: {
-        response_error_code = error_code_t::ERROR_BAD_MESSAGE;
-        break;
-    }
-    }
-    // error, or unknown message type.
-    response.error_code = response_error_code;
-    return send_message_response<decltype(response)>(response, from_fd);
-}
-
-void add_to_poll_fdset(pollfd *pfds[], int new_fd, int &fd_count, int &poll_fd_size)
-{
-    if (fd_count == poll_fd_size) {
-        poll_fd_size *= 2;
-        *pfds = (pollfd *)realloc(*pfds, sizeof(**pfds) * (poll_fd_size));
-    }
-    (*pfds)[fd_count].fd     = new_fd;
-    (*pfds)[fd_count].events = POLLIN;
-    fd_count++;
-}
-
-void remove_from_poll_fdset(pollfd pfds[], int idx, int &fd_count)
-{
-    pfds[idx] = pfds[fd_count - 1];
-    fd_count--;
-}
-
-static void serve(const std::string &socket_path)
-{
-    static constexpr int listen_backlog = 10;
-
-    int fd_size  = 5;
-    pollfd *pfds = (pollfd *)malloc(sizeof(pollfd *) * fd_size);
-
-    int server_sock    = 0;
-    sockaddr_un remote = {0};
-    sockaddr_un local  = {0};
-    server_sock        = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_sock == -1) {
-        perror("socket");
-        return;
-    }
-    local.sun_family = AF_UNIX;
-    std::strncpy(local.sun_path, socket_path.c_str(), socket_path.length());
-    unlink(socket_path.c_str());
-    if (bind(server_sock, (sockaddr *)&local, sizeof(local)) < 0) {
-        perror("bind");
-        return;
-    }
-    if (listen(server_sock, listen_backlog) < 0) {
-        perror("listen");
-        return;
-    }
-
-    pfds[0].fd     = server_sock;
-    pfds[0].events = POLLIN;
-    int fd_count   = 1; // server_sock
-    while (stay_alive) {
-        int poll_count = poll(pfds, fd_count, 1000);
-        if (poll_count == -1) {
-            perror("poll");
-        }
-        for (int i = 0; i < fd_count; i++) {
-            if (pfds[i].revents & POLLIN) {
-                if (pfds[i].fd == server_sock) {
-                    // new connection.
-                    unsigned sock_len = 0;
-                    int new_conn_fd   = accept(server_sock, (sockaddr *)&remote, &sock_len);
-                    if (new_conn_fd == -1) {
-                        perror("accept");
-                    } else {
-                        add_to_poll_fdset(&pfds, new_conn_fd, fd_count, fd_size);
-                        std::cout << "New connection!" << std::endl;
-                    }
-                } else {
-                    char rxbuf[256];
-                    int nbytes    = recv(pfds[i].fd, rxbuf, sizeof(rxbuf), 0);
-                    int sender_fd = pfds[i].fd;
-                    if (nbytes <= 0) {
-                        if (nbytes == 0) {
-                            std::cerr << "Client hung up on fd: " << sender_fd << std::endl;
-                        } else {
-                            // TODO check errors better (EAGAIN, EWOULDBLOCK etc);
-                            perror("recv");
-                        }
-                        // error, remove from poll set
-                        close(pfds[i].fd);
-                        remove_from_poll_fdset(pfds, i, fd_count);
-                    } else {
-                        // good data.
-                        message_request_header *hdr = (message_request_header *)rxbuf;
-                        std::cout << "Handling a message of type: "
-                                  << message_type_to_string(hdr->message_type) << std::endl;
-                        if (!handle_message(*hdr, pfds[i].fd)) {
-                            std::cerr << "Could not handle message." << std::endl;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    free(pfds);
-    close(server_sock);
-}
-
 int main(int argc, char **argv)
 {
     std::vector<std::thread> threads;
@@ -391,8 +213,12 @@ int main(int argc, char **argv)
     threads.push_back(std::move(pcap_thread));
     // now, start the unix socket IPC thread.
     const std::string socket_server_path = "/tmp/uslm_socket";
+    message_handler the_message_handler(sta_manager);
     std::thread unix_socket_server_thread =
-        std::thread([&socket_server_path]() { serve(socket_server_path); });
+        std::thread([&socket_server_path, &the_message_handler]() {
+            socket_server uds_server(the_message_handler);
+            uds_server.begin_serving(socket_server_path, stay_alive);
+        });
     threads.push_back(std::move(unix_socket_server_thread));
     for (std::thread &thr : threads) {
         if (!thr.joinable()) {

@@ -2,6 +2,7 @@
 #define __MESSAGES_H
 #include <assert.h>
 #include <cinttypes>
+#include <string>
 
 enum class message_type_t : uint32_t {
     /**
@@ -63,20 +64,7 @@ enum class error_code_t : uint32_t {
  * @param err_code the error_code_t of interest
  * @return std::string the string representation of 'err_code'
  */
-std::string error_code_to_string(const error_code_t &err_code)
-{
-    switch (err_code) {
-    case error_code_t::ERROR_STA_NOT_KNOWN:
-        return "ERROR_STA_NOT_KNOWN";
-    case error_code_t::ERROR_OK:
-        return "ERROR_OK";
-    case error_code_t::ERROR_BAD_MESSAGE:
-        return "ERROR_BAD_MESSAGE";
-    default:
-        break;
-    }
-    return "Unknown error code";
-}
+extern std::string error_code_to_string(const error_code_t &err_code);
 
 /**
  * @brief Convert a message_type_t enum to a string literal
@@ -84,26 +72,7 @@ std::string error_code_to_string(const error_code_t &err_code)
  * @param mt the message_type_t of interest
  * @return std::string the string representation of 'mt'
  */
-std::string message_type_to_string(const message_type_t mt)
-{
-    switch (mt) {
-    case message_type_t::MSG_REGISTER_STA:
-        return "MSG_REGISTER_STA";
-    case message_type_t::MSG_UNREGISTER_STA:
-        return "MSG_UNREGISTER_STA";
-    case message_type_t::MSG_GET_STA_STATS:
-        return "MSG_GET_STA_STATS";
-    case message_type_t::MSG_GET_STA_WMI_STATS:
-        return "MSG_GET_STA_WMI_STATS";
-    case message_type_t::MSG_CHANGE_KEEPALIVE_TIMEOUT_MS:
-        return "MSG_CHANGE_KEEPALIVE_TIMEOUT_MS";
-    case message_type_t::MSG_CHANGE_PACKET_PERIODICITY_MS:
-        return "MSG_CHANGE_PACKET_PERIODICITY_MS";
-    default:
-        break;
-    }
-    return "Unknown message type";
-}
+extern std::string message_type_to_string(const message_type_t &mt);
 
 struct message_request_header {
     message_type_t message_type;
