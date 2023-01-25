@@ -62,7 +62,8 @@ void printMacToStream(std::ostream &os, const unsigned char MACData[])
 
 template <typename Callback> static void print_usage_and(Callback cb)
 {
-    static constexpr char usage_str[] = "Usage: ./station-sniffer <device> <packet_wait_time (ms)>";
+    static constexpr char usage_str[] = "Usage: ./station-sniffer <device> <packet_wait_time (ms)> "
+                                        "<station_timeout_threshold (ms)>";
     std::cout << usage_str << std::endl;
     cb();
 }
@@ -165,12 +166,16 @@ int main(int argc, char **argv)
 {
     std::vector<std::thread> threads;
     std::cout << "Welcome to " << argv[0] << std::endl;
-    if (argc < 3)
+    if (argc < 4)
         print_usage_and([]() { exit(1); });
     const int signals_of_interest[2] = {
         SIGINT,
         SIGTERM,
     };
+
+    const auto timeout_param = std::atoi(argv[3]);
+    if (timeout_param < 0)
+        print_usage_and([]() { exit(1); });
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), argv[1]};
     char err[PCAP_ERRBUF_SIZE];
     auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
@@ -214,6 +219,15 @@ int main(int argc, char **argv)
     // now, start the unix socket IPC thread.
     const std::string socket_server_path = "/tmp/uslm_socket";
     message_handler the_message_handler(sta_manager);
+
+    std::chrono::milliseconds station_timeout_threshold{timeout_param};
+    std::thread sta_health_monitor_thread = std::thread([&station_timeout_threshold]() {
+        while (stay_alive) {
+            sta_manager.prune_timedout_stations(station_timeout_threshold);
+            std::this_thread::sleep_for(std::chrono::milliseconds(station_timeout_threshold));
+        }
+    });
+    threads.push_back(std::move(sta_health_monitor_thread));
     std::thread unix_socket_server_thread =
         std::thread([&socket_server_path, &the_message_handler]() {
             socket_server uds_server(the_message_handler);
