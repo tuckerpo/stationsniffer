@@ -140,4 +140,14 @@ public:
         for (auto &station : m_stations)
             callback(station);
     }
+
+    /**
+     * @brief Walks stations that we're measuring on and remove them if we have not seen a packet
+     * for a while.
+     *
+     * "For a while" -- (now - last_seen_time) > timeout_ms?
+     *
+     * @param timeout_ms The timeout threshold.
+     */
+    void prune_timedout_stations(std::chrono::milliseconds timeout_ms);
 };

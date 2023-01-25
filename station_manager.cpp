@@ -85,3 +85,14 @@ bool station_manager::update_station_last_seen(const uint8_t mac[ETH_ALEN], time
     it->update_last_seen(time_seconds);
     return true;
 }
+
+void station_manager::prune_timedout_stations(std::chrono::milliseconds timeout_ms)
+{
+    for (auto it = m_stations.begin(); it != m_stations.end();) {
+        if (it->is_timed_out_ms(timeout_ms)) {
+            it = m_stations.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
