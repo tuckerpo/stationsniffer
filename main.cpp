@@ -130,7 +130,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     if (sta_manager.should_capture_all_traffic() ||
         sta_manager.station_is_whitelisted(hdr->addr2)) {
         sta_manager.add_station(hdr->addr2);
-        radiotap_fields rt_fields;
+        radiotap_fields rt_fields = {};
         parse_radiotap_buf(iter, (uint8_t *)packet, radiotap_header_max_size_bytes, rt_fields);
 
         // If we got good radiotap data, update stations.
