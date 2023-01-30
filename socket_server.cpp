@@ -23,8 +23,9 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
 {
     static constexpr int listen_backlog = 10;
 
-    int fd_size     = 5;
-    pollfd *pfds    = (pollfd *)malloc(sizeof(pollfd *) * fd_size);
+    int fd_size  = 5;
+    pollfd *pfds = (pollfd *)malloc(sizeof(pollfd *) * fd_size);
+    memset(pfds, 0, sizeof(pollfd *) * fd_size);
     const auto bail = [&pfds]() {
         free(pfds);
         return false;
