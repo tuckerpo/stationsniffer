@@ -125,6 +125,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     const size_t eth_hdr_offset = iter._max_length;
     struct ieee80211_hdr *hdr   = (struct ieee80211_hdr *)(packet + eth_hdr_offset);
 
+    bool sta_was_updated = false;
     // If we're capturing wildcard source address, or if this is a station of interest to us,
     // parse this packet's radiotap header and update the station objects.
     if (sta_manager.should_capture_all_traffic() ||
@@ -138,20 +139,26 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
         if (!rt_fields.bad_fcs) {
             sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
             sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
+            sta_was_updated = true;
+            std::cout << "STA was updated\n";
         }
     }
 
     // Have all known stations calculate their WMA even if they have not had recent measurements,
     // because we care if there's temporally stale RSSI data.
     sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
-    sta_manager.for_each_station([](const station &s) {
-        std::cout << "Station ";
-        printMacToStream(std::cout, s.get_mac().data());
-        std::cout << std::dec << std::endl
-                  << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
-                  << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
-                  << std::endl;
-    });
+    // If any station was updated, dump the station table.
+    if (sta_was_updated) {
+        sta_manager.for_each_station([](const station &s) {
+            std::cout << "Station ";
+            printMacToStream(std::cout, s.get_mac().data());
+            std::cout << std::dec << std::endl
+                      << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
+                      << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
+                      << std::endl;
+        });
+    }
+
     return;
 }
 
