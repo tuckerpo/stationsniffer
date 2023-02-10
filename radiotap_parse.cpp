@@ -39,6 +39,11 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
                         radiotap_fields &rt_fields)
 {
     // be careful of unaligned access!
+
+    // typically, you only want the measurement made on the first antenna
+    // for example, a 4 antenna phone will see something like:
+    // ant1: -43 dBm, ant2: -45dBm, ant3: -99 dBm, ant4: -99 dBm
+    int n_meas = 0;
     int err;
     while (!(err = ieee80211_radiotap_iterator_next(&iter))) {
         switch (iter.this_arg_index) {
@@ -56,7 +61,10 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
         case IEEE80211_RADIOTAP_FHSS:
             break;
         case IEEE80211_RADIOTAP_DBM_ANTSIGNAL:
-            rt_fields.rssi = (int8_t)*iter.this_arg;
+            // Only want the first measurement per packet (antenna 1).
+            if (n_meas == 0)
+                rt_fields.rssi = (int8_t)*iter.this_arg;
+            n_meas++;
             break;
         case IEEE80211_RADIOTAP_DBM_ANTNOISE:
             break;
