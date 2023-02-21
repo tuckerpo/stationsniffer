@@ -120,6 +120,14 @@ public:
     bool update_station_last_seen(const uint8_t mac[ETH_ALEN], time_t time_seconds);
 
     /**
+     * @brief Set the bandwidth of the radio that made a measurement for a STA.
+     * 
+     * @param mac The MAC addr of the station to update.
+     * @param new_bw The new bandwidth value.
+     */
+    void set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t new_bw);
+
+    /**
      * @brief Calls 'Callback' on every station, immutable.
      *
      * @tparam Callback the callback to call on every station known to the station manager.

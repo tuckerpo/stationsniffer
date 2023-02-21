@@ -142,6 +142,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
         if (!rt_fields.bad_fcs) {
             sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
             sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
+            sta_manager.set_bandwidth_for_sta(hdr->addr2, measurement_radio_info.bandwidth);
             sta_was_updated = true;
             std::cout << "STA was updated\n";
         }
