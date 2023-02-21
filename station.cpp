@@ -90,3 +90,7 @@ bool station::addr_is_multicast() const
     return std::all_of(get_mac().begin(), get_mac().end(),
                        [](const auto &byte) -> bool { return 0xff == byte; });
 }
+
+void station::set_bandwidth(uint8_t bw) { m_bandwidth = bw; }
+
+uint8_t station::get_bandwidth() const { return m_bandwidth; }

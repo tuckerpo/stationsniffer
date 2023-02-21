@@ -19,6 +19,7 @@ class station {
     time_t m_last_seen_time;
     // the end of this vector will contain the most recent instantaneous measurement.
     std::vector<rssi_measurement> m_rssi_measurements;
+    uint8_t m_bandwidth;
 
 public:
     explicit station(uint8_t mac[ETH_ALEN]);
@@ -96,4 +97,18 @@ public:
      * @return true if this station's MAC is ff:ff:ff:ff:ff:ff, otherwise false.
      */
     bool addr_is_multicast() const;
+
+    /**
+     * @brief Set the bandwidth of the radio that last made a measurement for this station.
+     * 
+     * @param bw The bandwidth of the radio.
+     */
+    void set_bandwidth(uint8_t bw);
+
+    /**
+     * @brief The bandwidth of the radio that made this station's last RSSI measurement.
+     * 
+     * @return uint8_t The bandwidth of the radio making measurements for this station.
+     */
+    uint8_t get_bandwidth() const;
 };
