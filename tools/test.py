@@ -37,8 +37,8 @@ def connect_and_poll_rssi(socket_path: str, mac: str) -> None:
             packed = pack('i6B', MessageType.MSG_GET_STA_STATS, sta_mac[0], sta_mac[1], sta_mac[2], sta_mac[3], sta_mac[4], sta_mac[5])
             client.send(packed)
             rx = client.recv(256)
-            err, rssi, channel_num, timestamp = unpack('<ibhQ', rx)
-            print(f'STA {mac} err {err} channel number {channel_num}, rssi {rssi}, timestamp {timestamp}')
+            err, rssi, channel_num, bw, timestamp = unpack('<ibhbQ', rx)
+            print(f'STA {mac} err {err} channel number {channel_num}, bandwidth {bw} rssi {rssi}, timestamp {timestamp}')
             time.sleep(1)
 
 def validate_mac(mac: str) -> bool:
