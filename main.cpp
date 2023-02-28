@@ -17,11 +17,13 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <linux/netlink.h>
 #include <thread>
 #include <vector>
 
 // our stuff
 #include "message_handler.h"
+#include "nl_client.h"
 #include "radiotap_parse.h"
 #include "socket_server.h"
 #include "station.h"
@@ -100,6 +102,7 @@ struct packet_capture_params {
 }
 
 static station_manager sta_manager;
+static if_info measurement_radio_info;
 
 // typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 // const u_char *);
@@ -139,6 +142,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
         if (!rt_fields.bad_fcs) {
             sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
             sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
+            sta_manager.set_bandwidth_for_sta(hdr->addr2, measurement_radio_info.bandwidth);
             sta_was_updated = true;
             std::cout << "STA was updated\n";
         }
@@ -178,7 +182,35 @@ int main(int argc, char **argv)
         SIGINT,
         SIGTERM,
     };
-    packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), argv[1]};
+    const std::string capture_ifname = std::string(argv[1]);
+    std::unique_ptr<nl80211_socket> netlink_sock =
+        std::make_unique<nl80211_socket>(NETLINK_GENERIC);
+    if (!netlink_sock->connect()) {
+        std::cerr << "Could not connect netlink socket!\n";
+        return 1;
+    }
+    std::unique_ptr<nl80211_client_impl> netlink_client =
+        std::make_unique<nl80211_client_impl>(netlink_sock.get());
+    if_info interface_info{};
+    netlink_client->get_interface_info(capture_ifname, interface_info);
+    std::vector<std::string> interface_names{};
+    netlink_client->get_interfaces(interface_names);
+    bool has_bandwidth_data = (interface_info.bandwidth != 0);
+    // In case the monitor interface is a virtual interface...
+    // It will share a MAC with the real PHY it was created on
+    // So walk radios and take the real PHY's bandwidth information.
+    if (!has_bandwidth_data) {
+        std::cout << "No bandwidth data, looking for real PHY\n";
+        for (const auto &interface : interface_names) {
+            if (interface == capture_ifname)
+                continue;
+            if_info other_interface_info{};
+            netlink_client->get_interface_info(interface, other_interface_info);
+            if (std::memcmp(interface_info.mac.data(), other_interface_info.mac.data(), 6) == 0)
+                measurement_radio_info.bandwidth = other_interface_info.bandwidth;
+        }
+    }
+    packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), capture_ifname};
     char err[PCAP_ERRBUF_SIZE];
     auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
     if (!pcap_handle) {

@@ -58,6 +58,39 @@ enum class error_code_t : uint32_t {
     ERROR_BAD_MESSAGE = 0x02,
 };
 
+enum class bandwidth_t : uint8_t {
+    /**
+     * @brief Unknown bandwidth -- default value
+     * 
+     */
+    BANDWIDTH_UNKNOWN = 0,
+    /**
+     * @brief 20 mHz BW
+     * 
+     */
+    BANDWIDTH_20MHZ = 20,
+    /**
+     * @brief 40 mHz BW
+     * 
+     */
+    BANDWIDTH_40MHZ = 40,
+    /**
+     * @brief 80 mHz BW
+     * 
+     */
+    BANDWIDTH_80MHZ = 80,
+    /**
+     * @brief 160 mHz BW
+     * 
+     */
+    BANDWIDTH_160MHZ = 160,
+    /**
+     * @brief 80+80 mHz BW
+     * 
+     */
+    BANDWIDTH_80_80 = 161,
+};
+
 /**
  * @brief Convert an error_code_t to a string literal
  * 
@@ -94,6 +127,7 @@ struct response {
 struct sta_lm : public response {
     int8_t rssi;
     int16_t channel_number;
+    uint8_t bandwidth;
     uint64_t timestamp;
 } __attribute__((packed));
 
@@ -106,13 +140,12 @@ struct periodicity_message : public request {
     uint32_t periodicity_ms;
 } __attribute__((packed));
 
-static_assert(
-    sizeof(sta_lm) == 15,
-    "sta_lm struct should be 15 bytes (one byte for RSSI, 2 for channel number, 8 for timestamp)");
+static_assert(sizeof(sta_lm) == 16, "sta_lm struct should be 15 bytes (one byte for RSSI, 1 for "
+                                    "bandwidth, 2 for channel number, 8 for timestamp)");
 static_assert(
     sizeof(message_request_header) == 14,
     "message_header should be 14 bytes (uint32_t message_type, int8_t mac[6], uint32_t checksum");
 static_assert(sizeof(periodicity_message) == 18,
               "struct periodicity_message should be 18 bytes long.");
-static_assert(sizeof(sta_wma_lm) == 20, "struct sta_wma_lm should be 20 bytes long");
+static_assert(sizeof(sta_wma_lm) == 21, "struct sta_wma_lm should be 20 bytes long");
 #endif // __MESSAGES_H

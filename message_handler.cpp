@@ -50,6 +50,7 @@ bool message_handler::handle_message(const message_request_header &header, int r
             const station s                          = sta.value();
             station_link_metrics.rssi                = s.get_rssi();
             station_link_metrics.channel_number      = s.get_channel();
+            station_link_metrics.bandwidth           = s.get_bandwidth();
             station_link_metrics.timestamp           = s.get_last_seen_seconds();
             station_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {

@@ -10,6 +10,7 @@ struct sta_lm {
     int32_t error_code;
     int8_t rssi;
     int16_t channel_number;
+    uint8_t bandwidth;
     uint64_t timestamp;
 } __attribute__((packed));
 
@@ -72,7 +73,7 @@ static void print_usage() { fprintf(stderr, "Usage: ./uds_client <socket_path> <
 static int validate_mac(uint8_t *buf, size_t len)
 {
     size_t i;
-    size_t hex_count = 0;
+    size_t hex_count         = 0;
     size_t current_hex_count = 0;
     for (i = 0; i < len; i++) {
         if (isxdigit(buf[i])) {
@@ -190,9 +191,9 @@ int main(int argc, char **argv)
             printf("Error code! %d (%s)\n", link_metrics_response->error_code,
                    err_type_2_str(link_metrics_response->error_code));
         } else {
-            printf("STA MAC %s channel number %d rssi %d timestamp %" PRIu64 "\n", sta_mac,
-                   link_metrics_response->channel_number, link_metrics_response->rssi,
-                   link_metrics_response->timestamp);
+            printf("STA MAC %s channel number %d bw %u rssi %d timestamp %" PRIu64 "\n", sta_mac,
+                   link_metrics_response->channel_number, link_metrics_response->bandwidth,
+                   link_metrics_response->rssi, link_metrics_response->timestamp);
         }
     }
 }

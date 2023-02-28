@@ -85,3 +85,13 @@ bool station_manager::update_station_last_seen(const uint8_t mac[ETH_ALEN], time
     it->update_last_seen(time_seconds);
     return true;
 }
+
+void station_manager::set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t new_bw)
+{
+    auto it = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
+        return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
+    });
+    if (it == m_stations.end())
+        return;
+    it->set_bandwidth(new_bw);
+}
