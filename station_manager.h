@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -37,6 +38,11 @@ class station_manager {
      * @brief MACs for stations that we want to measure link metrics on, but have not seen yet.
      */
     std::vector<whitelisted_mac> m_whitelisted_macs;
+
+    /**
+     * @brief For atomic access when operating on stations.
+     */
+    mutable std::mutex m_station_lock;
 
 public:
     station_manager()          = default;
@@ -134,6 +140,7 @@ public:
      */
     template <typename Callback> void for_each_station(Callback callback)
     {
+        auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
         for (const auto &station : m_stations)
             callback(station);
     }
@@ -145,6 +152,7 @@ public:
      */
     template <typename Callback> void for_each_station_mutable(Callback callback)
     {
+        auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
         for (auto &station : m_stations)
             callback(station);
     }
