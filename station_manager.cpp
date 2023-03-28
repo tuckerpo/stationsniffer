@@ -5,11 +5,13 @@ void station_manager::add_station(const uint8_t mac[ETH_ALEN])
 {
     if (get_sta_by_mac(mac).has_value())
         return;
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
     m_stations.push_back(station(mac));
 }
 
 void station_manager::remove_station(const uint8_t mac[ETH_ALEN])
 {
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
     m_stations.erase(std::remove_if(m_stations.begin(), m_stations.end(),
                                     [mac](const station &current_sta) -> bool {
                                         return std::memcmp(mac, current_sta.get_mac().data(),
@@ -26,6 +28,7 @@ void station_manager::remove_station(const uint8_t mac[ETH_ALEN])
 
 std::optional<station> station_manager::get_sta_by_mac(const uint8_t mac[ETH_ALEN]) const
 {
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
     const auto it =
         std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &sta) -> bool {
             return std::memcmp(sta.get_mac().data(), mac, ETH_ALEN) == 0;
@@ -66,7 +69,8 @@ bool station_manager::station_is_whitelisted(const uint8_t mac[ETH_ALEN])
 bool station_manager::update_station_rt_fields(const uint8_t mac[ETH_ALEN],
                                                const radiotap_fields &rt_f)
 {
-    auto it = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
+    auto it   = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
         return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
     });
     if (it == m_stations.end())
@@ -77,7 +81,8 @@ bool station_manager::update_station_rt_fields(const uint8_t mac[ETH_ALEN],
 
 bool station_manager::update_station_last_seen(const uint8_t mac[ETH_ALEN], time_t time_seconds)
 {
-    auto it = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
+    auto it   = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
         return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
     });
     if (it == m_stations.end())
@@ -88,7 +93,8 @@ bool station_manager::update_station_last_seen(const uint8_t mac[ETH_ALEN], time
 
 void station_manager::set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t new_bw)
 {
-    auto it = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
+    auto it   = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
         return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
     });
     if (it == m_stations.end())
