@@ -242,10 +242,13 @@ int main(int argc, char **argv)
     for (int sig : signals_of_interest) {
         std::signal(sig, [](int signum) { stay_alive = false; });
     }
-    std::thread pcap_thread = std::thread([&pcap_handle, pcap_params]() {
+
+    int ret                 = 0;
+    std::thread pcap_thread = std::thread([&pcap_handle, pcap_params, &ret]() {
         int loop_status = begin_packet_loop(pcap_handle, pcap_params, packet_cb, 0);
         if (loop_status != PCAP_ERROR_BREAK) {
             std::cerr << "Unexpected pcap_loop exit code: " << loop_status << std::endl;
+            ret = 1;
         }
         pcap_close(pcap_handle);
     });
@@ -264,8 +267,9 @@ int main(int argc, char **argv)
             std::this_thread::sleep_for(std::chrono::seconds(1));
         } else {
             thr.join();
+            stay_alive = false;
         }
     }
     std::cout << "Done sniffing on '" << pcap_params.device_name << "', bye!" << std::endl;
-    return 0;
+    return ret;
 }
