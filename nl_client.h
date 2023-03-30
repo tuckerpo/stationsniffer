@@ -11,6 +11,7 @@
 struct if_info {
     if_info() = default;
     std::array<uint8_t, 6> mac;
+    uint32_t wiphy;
     uint16_t frequency;
     uint16_t channel;
     uint16_t bandwidth;
@@ -47,6 +48,7 @@ public:
     virtual ~nl80211_client_impl() = default;
     virtual bool get_interfaces(std::vector<std::string> &interfaces_out) override;
     virtual bool get_interface_info(const std::string &interface_name, if_info &info) override;
+    bool get_wiphy_bandwidth(if_info &info);
 
 private:
     void get_bandwidth_from_attr(struct nlattr **tb, if_info &info);

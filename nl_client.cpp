@@ -132,6 +132,45 @@ bool nl80211_client_impl::get_interface_info(const std::string &ifname, if_info 
                 std::memcpy(info.mac.data(), data, 6);
             }
 
+            if (tb[NL80211_ATTR_WIPHY]) {
+                info.wiphy = nla_get_u32(tb[NL80211_ATTR_WIPHY]);
+            }
+
+            get_bandwidth_from_attr(tb, info);
+        });
+}
+
+bool nl80211_client_impl::get_wiphy_bandwidth(if_info &info)
+{
+    return m_socket->send_receive_msg(
+        NL80211_CMD_GET_INTERFACE, NLM_F_DUMP, [](struct nl_msg *msg) -> bool { return true; },
+        [&](struct nl_msg *msg) {
+            if (info.bandwidth) {
+                return;
+            }
+
+            struct nlattr *tb[NL80211_ATTR_MAX + 1];
+            struct genlmsghdr *gnlh = static_cast<struct genlmsghdr *>(nlmsg_data(nlmsg_hdr(msg)));
+
+            // Parse the netlink message
+            if (nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0),
+                          NULL)) {
+                std::cerr << "Failed to parse netlink message when getting wiphy bandwidth\n";
+                return;
+            }
+
+            // Skip interfaces without a wiphy and non-AP interfaces:
+            if (!tb[NL80211_ATTR_WIPHY] || !tb[NL80211_ATTR_IFTYPE] ||
+                nla_get_u32(tb[NL80211_ATTR_IFTYPE]) != NL80211_IFTYPE_AP) {
+                return;
+            }
+
+            uint32_t wiphy = nla_get_u32(tb[NL80211_ATTR_WIPHY]);
+
+            if (wiphy != info.wiphy) {
+                return;
+            }
+
             get_bandwidth_from_attr(tb, info);
         });
 }

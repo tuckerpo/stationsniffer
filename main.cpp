@@ -208,9 +208,24 @@ int main(int argc, char **argv)
             if_info other_interface_info{};
             netlink_client->get_interface_info(interface, other_interface_info);
             if (std::memcmp(interface_info.mac.data(), other_interface_info.mac.data(), 6) == 0)
-                measurement_radio_info.bandwidth = other_interface_info.bandwidth;
+                interface_info.bandwidth = other_interface_info.bandwidth;
         }
     }
+
+    if (!interface_info.bandwidth) {
+        std::cerr << "No bandwidth information available from the interface, trying other AP "
+                     "interfaces on the same phy.\n";
+        netlink_client->get_wiphy_bandwidth(interface_info);
+
+        if (!interface_info.bandwidth) {
+            std::cerr << "No bandwidth information available even from another interface!\n";
+        } else {
+            std::cerr << "Bandwidth information is available from another interface.\n";
+        }
+    }
+
+    measurement_radio_info.bandwidth = interface_info.bandwidth;
+
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), capture_ifname};
     char err[PCAP_ERRBUF_SIZE];
     auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
