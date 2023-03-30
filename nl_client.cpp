@@ -56,6 +56,44 @@ bool nl80211_client_impl::get_interfaces(std::vector<std::string> &interfaces)
         });
 }
 
+void nl80211_client_impl::get_bandwidth_from_attr(struct nlattr **tb, if_info &info)
+{
+    if (tb[NL80211_ATTR_WIPHY_FREQ]) {
+        info.frequency = nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]);
+        if (tb[NL80211_ATTR_CHANNEL_WIDTH]) {
+            // NL80211_ATTR_CENTER_FREQ1 attribute must be provided for bw 40 80 160
+            // NL80211_ATTR_CENTER_FREQ2 attribute must be provided for bw 80P80
+            switch (nla_get_u32(tb[NL80211_ATTR_CHANNEL_WIDTH])) {
+            case NL80211_CHAN_WIDTH_20_NOHT:
+            case NL80211_CHAN_WIDTH_20:
+                info.bandwidth = 20;
+                break;
+            case NL80211_CHAN_WIDTH_40:
+                info.bandwidth = 40;
+                break;
+            case NL80211_CHAN_WIDTH_80:
+                info.bandwidth = 80;
+                break;
+            case NL80211_CHAN_WIDTH_80P80:
+                if (tb[NL80211_ATTR_CENTER_FREQ2]) {
+                    info.frequency_center2 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]);
+                }
+                info.bandwidth = 160;
+                break;
+            case NL80211_CHAN_WIDTH_160:
+                info.bandwidth = 160;
+                break;
+            default:
+                info.bandwidth = 0;
+                break;
+            }
+            if (info.bandwidth > 20 && tb[NL80211_ATTR_CENTER_FREQ1]) {
+                info.frequency_center1 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]);
+            }
+        }
+    }
+}
+
 bool nl80211_client_impl::get_interface_info(const std::string &ifname, if_info &info)
 {
     info = {};
@@ -94,39 +132,6 @@ bool nl80211_client_impl::get_interface_info(const std::string &ifname, if_info 
                 std::memcpy(info.mac.data(), data, 6);
             }
 
-            if (tb[NL80211_ATTR_WIPHY_FREQ]) {
-                info.frequency = nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]);
-                if (tb[NL80211_ATTR_CHANNEL_WIDTH]) {
-                    // NL80211_ATTR_CENTER_FREQ1 attribute must be provided for bw 40 80 160
-                    // NL80211_ATTR_CENTER_FREQ2 attribute must be provided for bw 80P80
-                    switch (nla_get_u32(tb[NL80211_ATTR_CHANNEL_WIDTH])) {
-                    case NL80211_CHAN_WIDTH_20_NOHT:
-                    case NL80211_CHAN_WIDTH_20:
-                        info.bandwidth = 20;
-                        break;
-                    case NL80211_CHAN_WIDTH_40:
-                        info.bandwidth = 40;
-                        break;
-                    case NL80211_CHAN_WIDTH_80:
-                        info.bandwidth = 80;
-                        break;
-                    case NL80211_CHAN_WIDTH_80P80:
-                        if (tb[NL80211_ATTR_CENTER_FREQ2]) {
-                            info.frequency_center2 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]);
-                        }
-                        info.bandwidth = 160;
-                        break;
-                    case NL80211_CHAN_WIDTH_160:
-                        info.bandwidth = 160;
-                        break;
-                    default:
-                        info.bandwidth = 0;
-                        break;
-                    }
-                    if (info.bandwidth > 20 && tb[NL80211_ATTR_CENTER_FREQ1]) {
-                        info.frequency_center1 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]);
-                    }
-                }
-            }
+            get_bandwidth_from_attr(tb, info);
         });
 }
