@@ -208,6 +208,7 @@ int main(int argc, char **argv)
     }
 
     measurement_radio_info.bandwidth = interface_info.bandwidth;
+    measurement_radio_info.wiphy     = interface_info.wiphy;
 
     packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), capture_ifname};
     char err[PCAP_ERRBUF_SIZE];
@@ -250,6 +251,7 @@ int main(int argc, char **argv)
             ret = 1;
         }
         pcap_close(pcap_handle);
+        stay_alive = false;
     });
     threads.push_back(std::move(pcap_thread));
     // now, start the unix socket IPC thread.
@@ -261,12 +263,25 @@ int main(int argc, char **argv)
             uds_server.begin_serving(socket_server_path, stay_alive);
         });
     threads.push_back(std::move(unix_socket_server_thread));
+
+    if (!measurement_radio_info.bandwidth) {
+        std::thread bandwidth_thread = std::thread([&netlink_client]() {
+            while (stay_alive && !measurement_radio_info.bandwidth) {
+                netlink_client->get_wiphy_bandwidth(measurement_radio_info);
+                if (measurement_radio_info.bandwidth) {
+                    std::cerr << "Bandwidth information is now available\n";
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        });
+        threads.push_back(std::move(bandwidth_thread));
+    }
+
     for (std::thread &thr : threads) {
         if (!thr.joinable()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         } else {
             thr.join();
-            stay_alive = false;
         }
     }
     std::cout << "Done sniffing on '" << pcap_params.device_name << "', bye!" << std::endl;
