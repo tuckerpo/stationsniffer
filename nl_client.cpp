@@ -8,53 +8,7 @@
 #include <net/if.h>
 #include <netlink/genl/genl.h>
 
-static std::string nl80211_parse_ifname(struct nlattr *tb[])
-{
-    std::string ifname{};
-    if (tb[NL80211_ATTR_IFNAME]) {
-        size_t len       = nla_len(tb[NL80211_ATTR_IFNAME]);
-        const char *data = static_cast<const char *>(nla_data(tb[NL80211_ATTR_IFNAME]));
-        if (0 == len) {
-            std::cerr << "Interface name is empty\n";
-        }
-        if (data[len - 1] != '\0') {
-            std::cerr << "Interface name is not null-terminated\n";
-        }
-        ifname.assign(data);
-    }
-    return ifname;
-}
-
 nl80211_client_impl::nl80211_client_impl(nl80211_socket *socket) : m_socket(socket) {}
-
-bool nl80211_client_impl::get_interfaces(std::vector<std::string> &interfaces)
-{
-    if (!interfaces.empty())
-        interfaces.clear();
-    if (!m_socket) {
-        std::cerr << "nl80211 socket is nullptr\n";
-        return false;
-    }
-
-    return m_socket->send_receive_msg(
-        NL80211_CMD_GET_INTERFACE, NLM_F_DUMP, [](struct nl_msg *msg) -> bool { return true; },
-        [&](struct nl_msg *msg) {
-            struct nlattr *tb[NL80211_ATTR_MAX + 1];
-            struct genlmsghdr *gnlh = (struct genlmsghdr *)nlmsg_data(nlmsg_hdr(msg));
-
-            // Parse the netlink message
-            if (nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0),
-                          NULL)) {
-                std::cerr << "Failed to parse netlink message NL80211_CMD_GET_INTERFACE\n";
-                return;
-            }
-
-            std::string ifname = nl80211_parse_ifname(tb);
-            if (!ifname.empty()) {
-                interfaces.push_back(ifname);
-            }
-        });
-}
 
 void nl80211_client_impl::get_bandwidth_from_attr(struct nlattr **tb, if_info &info)
 {

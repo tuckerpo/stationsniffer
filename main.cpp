@@ -194,23 +194,6 @@ int main(int argc, char **argv)
         std::make_unique<nl80211_client_impl>(netlink_sock.get());
     if_info interface_info{};
     netlink_client->get_interface_info(capture_ifname, interface_info);
-    std::vector<std::string> interface_names{};
-    netlink_client->get_interfaces(interface_names);
-    bool has_bandwidth_data = (interface_info.bandwidth != 0);
-    // In case the monitor interface is a virtual interface...
-    // It will share a MAC with the real PHY it was created on
-    // So walk radios and take the real PHY's bandwidth information.
-    if (!has_bandwidth_data) {
-        std::cout << "No bandwidth data, looking for real PHY\n";
-        for (const auto &interface : interface_names) {
-            if (interface == capture_ifname)
-                continue;
-            if_info other_interface_info{};
-            netlink_client->get_interface_info(interface, other_interface_info);
-            if (std::memcmp(interface_info.mac.data(), other_interface_info.mac.data(), 6) == 0)
-                interface_info.bandwidth = other_interface_info.bandwidth;
-        }
-    }
 
     if (!interface_info.bandwidth) {
         std::cerr << "No bandwidth information available from the interface, trying other AP "

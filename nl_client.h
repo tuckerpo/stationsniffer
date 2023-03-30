@@ -24,13 +24,6 @@ public:
     virtual ~nl80211_client() = default;
 
     /**
-     * @brief Get the names of all interfaces.
-     * 
-     * @param interfaces_out[out] Vector of strings which are the interface names.
-     * @return true on success, false and empty vector otherwise.
-     */
-    virtual bool get_interfaces(std::vector<std::string> &interfaces_out) = 0;
-    /**
      * @brief Get metadata about an interface with name 'interface_name'
      * 
      * @param interface_name The name of the interface of interest
@@ -46,7 +39,6 @@ class nl80211_client_impl : public nl80211_client {
 public:
     explicit nl80211_client_impl(nl80211_socket *socket);
     virtual ~nl80211_client_impl() = default;
-    virtual bool get_interfaces(std::vector<std::string> &interfaces_out) override;
     virtual bool get_interface_info(const std::string &interface_name, if_info &info) override;
     bool get_wiphy_bandwidth(if_info &info);
 
