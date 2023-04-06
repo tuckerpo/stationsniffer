@@ -11,6 +11,7 @@
 struct if_info {
     if_info() = default;
     std::array<uint8_t, 6> mac;
+    uint32_t wiphy;
     uint16_t frequency;
     uint16_t channel;
     uint16_t bandwidth;
@@ -22,13 +23,6 @@ class nl80211_client {
 public:
     virtual ~nl80211_client() = default;
 
-    /**
-     * @brief Get the names of all interfaces.
-     * 
-     * @param interfaces_out[out] Vector of strings which are the interface names.
-     * @return true on success, false and empty vector otherwise.
-     */
-    virtual bool get_interfaces(std::vector<std::string> &interfaces_out) = 0;
     /**
      * @brief Get metadata about an interface with name 'interface_name'
      * 
@@ -45,6 +39,9 @@ class nl80211_client_impl : public nl80211_client {
 public:
     explicit nl80211_client_impl(nl80211_socket *socket);
     virtual ~nl80211_client_impl() = default;
-    virtual bool get_interfaces(std::vector<std::string> &interfaces_out) override;
     virtual bool get_interface_info(const std::string &interface_name, if_info &info) override;
+    bool get_wiphy_bandwidth(if_info &info);
+
+private:
+    void get_bandwidth_from_attr(struct nlattr **tb, if_info &info);
 };
