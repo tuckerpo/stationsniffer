@@ -27,8 +27,6 @@ bool message_handler::post_data(const std::vector<uint8_t> &payload, int from_fd
     // We only need the header information, not the entire payload.
     // So, only take payload[0..sizeof(message_request_header)], and toss the rest.
     memcpy(&header, payload.data(), sizeof(message_request_header));
-    std::cout << "Got a message of type " << message_type_to_string(header.message_type)
-              << std::endl;
     return handle_message(header, from_fd);
 }
 
