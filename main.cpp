@@ -218,7 +218,7 @@ int main(int argc, char **argv)
                   << "', err: " << err << std::endl;
         return 1;
     }
-    pcap_set_timeout(pcap_handle, pcap_params.packet_cadence_ms);
+    pcap_set_immediate_mode(pcap_handle, 1);
     std::cout << "Got a handle to device '" << pcap_params.device_name << "'" << std::endl;
     int pcap_tstamp_type = PCAP_TSTAMP_HOST;
     int set_tstamp_err   = pcap_set_tstamp_type(pcap_handle, pcap_tstamp_type);
