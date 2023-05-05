@@ -12,8 +12,6 @@ struct pollfd;
 class socket_server {
     message_handler &m_message_handler;
     int m_server_fd;
-    void add_to_poll_fdset(pollfd *pfds[], int new_fd, int &fd_count, int &poll_fd_size);
-    void remove_from_poll_fdset(pollfd pfds[], int idx, int &fd_count);
 
 public:
     /**
