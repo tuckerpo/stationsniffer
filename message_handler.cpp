@@ -62,10 +62,11 @@ bool message_handler::handle_message(const message_request_header &header, int r
         auto sta = m_sta_manager.get_sta_by_mac(header.mac);
         if (sta.has_value()) {
             const station s                              = sta.value();
-            station_wma_link_metrics.lm.rssi             = s.get_rssi();
-            station_wma_link_metrics.lm.channel_number   = s.get_channel();
-            station_wma_link_metrics.lm.timestamp        = s.get_last_seen_seconds();
+            station_wma_link_metrics.rssi                = s.get_rssi();
+            station_wma_link_metrics.channel_number      = s.get_channel();
+            station_wma_link_metrics.timestamp           = s.get_last_seen_seconds();
             station_wma_link_metrics.wma_rssi            = s.get_wma_rssi();
+            station_wma_link_metrics.bandwidth           = s.get_bandwidth();
             station_wma_link_metrics.response.error_code = error_code_t::ERROR_OK;
         } else {
             response_error_code = error_code_t::ERROR_STA_NOT_KNOWN;

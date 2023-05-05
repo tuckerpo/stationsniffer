@@ -132,7 +132,10 @@ struct sta_lm : public response {
 } __attribute__((packed));
 
 struct sta_wma_lm : public response {
-    sta_lm lm;
+    int8_t rssi;
+    int16_t channel_number;
+    uint8_t bandwidth;
+    uint64_t timestamp;
     int8_t wma_rssi;
 } __attribute__((packed));
 
@@ -147,5 +150,5 @@ static_assert(
     "message_header should be 14 bytes (uint32_t message_type, int8_t mac[6], uint32_t checksum");
 static_assert(sizeof(periodicity_message) == 18,
               "struct periodicity_message should be 18 bytes long.");
-static_assert(sizeof(sta_wma_lm) == 21, "struct sta_wma_lm should be 20 bytes long");
+static_assert(sizeof(sta_wma_lm) == 17, "struct sta_wma_lm should be 17 bytes long");
 #endif // __MESSAGES_H
