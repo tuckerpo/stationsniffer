@@ -20,6 +20,11 @@ class message_handler {
      */
     bool handle_message(const message_request_header &header, int request_fd) const;
 
+    bool handle_register_sta(const message_request_header &header, int request_fd) const;
+    bool handle_unregister_sta(const message_request_header &header, int request_fd) const;
+    bool handle_get_sta_stats(const message_request_header &header, int request_fd) const;
+    bool handle_get_sta_wmi_stats(const message_request_header &header, int request_fd) const;
+
 public:
     explicit message_handler(station_manager &sta_manager);
     virtual ~message_handler() = default;
