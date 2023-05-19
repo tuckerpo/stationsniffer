@@ -9,6 +9,7 @@ workflow:
 
 stages:
   - static_analysis
+  - unit_tests
 
 clang-format:
   stage: static_analysis
@@ -31,3 +32,15 @@ clang-format:
     when: on_failure
     expire_in: 1 week
   allow_failure: true
+
+googletest:
+  stage: unit_tests
+  before_script:
+    - apt-get update
+    - apt-get install -y git make
+  script:
+    - git submodule update --init --recursive
+    - cd tests
+    - make
+    - find . -maxdepth 1 -type f -executable -exec {} \;
+  allow_failure: false
