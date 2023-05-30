@@ -14,6 +14,11 @@ struct sta_lm {
     uint64_t timestamp;
 } __attribute__((packed));
 
+struct sta_dissasoc_msg {
+    uint8_t disassociated;
+    uint8_t bssid[6];
+};
+
 enum message_type {
     MSG_REGISTER_STA = 0x01,
 
@@ -195,5 +200,30 @@ int main(int argc, char **argv)
                    link_metrics_response->channel_number, link_metrics_response->bandwidth,
                    link_metrics_response->rssi, link_metrics_response->timestamp);
         }
+        // ask for disassociated stations periodically
+        buf[0] = 0x40;
+        // padding, since message_type is int32
+        buf[1] = 0x00;
+        buf[2] = 0x00;
+        buf[3] = 0x00;
+        // done padding.
+        buf[4]  = mac[0];
+        buf[5]  = mac[1];
+        buf[6]  = mac[2];
+        buf[7]  = mac[3];
+        buf[8]  = mac[4];
+        buf[9]  = mac[5];
+        buf[10] = '\0';
+        if (send(fd, buf, 11, 0) < 0) {
+            perror("send");
+            return 1;
+        }
+        sleep(1);
+        if (recv(fd, rxbuf, sizeof(rxbuf), 0) < 0) {
+            perror("recv");
+            return 1;
+        }
+        struct sta_dissasoc_msg *disassoc_msg = (struct sta_dissasoc_msg *)rxbuf;
+        printf("has STA %s disconnected? %d\n", sta_mac, disassoc_msg->disassociated);
     }
 }

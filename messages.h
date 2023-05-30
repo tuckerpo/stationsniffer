@@ -37,6 +37,8 @@ enum class message_type_t : uint32_t {
      * 
      */
     MSG_CHANGE_PACKET_PERIODICITY_MS = 0x20,
+
+    MSG_GET_DISASSOCIATED_STATIONS = 0x40,
 };
 
 enum class error_code_t : uint32_t {
@@ -137,6 +139,13 @@ struct sta_wma_lm : public response {
     uint8_t bandwidth;
     uint64_t timestamp;
     int8_t wma_rssi;
+} __attribute__((packed));
+
+struct sta_diassoc_query : public request {};
+
+struct sta_disassoc_response : public response {
+    uint8_t disassociated;
+    uint8_t bssid[6];
 } __attribute__((packed));
 
 struct periodicity_message : public request {

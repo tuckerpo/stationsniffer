@@ -40,6 +40,12 @@ class station_manager {
     std::vector<whitelisted_mac> m_whitelisted_macs;
 
     /**
+     * @brief Vector of pairs of <station_mac, BSSID> where BSSID is the BSS that the station has left.
+     * 
+     */
+    std::vector<std::pair<station, std::array<uint8_t, ETH_ALEN>>> m_disassociated_stations;
+
+    /**
      * @brief For atomic access when operating on stations.
      */
     mutable std::mutex m_station_lock;
@@ -132,6 +138,21 @@ public:
      * @param new_bw The new bandwidth value.
      */
     void set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t new_bw);
+
+    /**
+     * @brief Add a disassociated station to this manager's disassociated list.
+     * 
+     * @param mac The MAC of the station that disassociated.
+     */
+    void add_disassociated_station(const uint8_t mac[ETH_ALEN], const uint8_t bssid[ETH_ALEN]);
+
+    /**
+     * @brief Get the disassociated stations list
+     * 
+     * @return std::vector<station> A list of all disassociated stations.
+     */
+    std::vector<std::pair<station, std::array<uint8_t, ETH_ALEN>>>
+    get_disassociated_stations() const;
 
     /**
      * @brief Calls 'Callback' on every station, immutable.

@@ -74,6 +74,21 @@ bool message_handler::handle_message(const message_request_header &header, int r
         }
         return send_message_response<sta_wma_lm>(station_wma_link_metrics, request_fd);
     } break;
+    case message_type_t::MSG_GET_DISASSOCIATED_STATIONS: {
+        auto disassociated_stations = m_sta_manager.get_disassociated_stations();
+        sta_disassoc_response sta_dc_response{};
+        auto sta_dc_it =
+            std::find_if(disassociated_stations.begin(), disassociated_stations.end(),
+                         [&header](const auto &sta_bssid_pair) -> bool {
+                             auto sta = sta_bssid_pair.first;
+                             return std::memcmp(sta.get_mac().data(), header.mac, ETH_ALEN) == 0;
+                         });
+        sta_dc_response.disassociated = (sta_dc_it != disassociated_stations.end());
+        if (sta_dc_response.disassociated) {
+            std::copy_n(sta_dc_it->second.data(), ETH_ALEN, sta_dc_response.bssid);
+        }
+        return send_message_response<sta_disassoc_response>(sta_dc_response, request_fd);
+    } break;
     case message_type_t::MSG_CHANGE_PACKET_PERIODICITY_MS:
         // fall thru
     case message_type_t::MSG_CHANGE_KEEPALIVE_TIMEOUT_MS:

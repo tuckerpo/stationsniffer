@@ -102,6 +102,15 @@ struct packet_capture_params {
     pcap_free_tstamp_types(p_timestamp_types);
 }
 
+static bool is_disassoc_or_deauth_frame(ieee80211_hdr *mac_header)
+{
+    if (!mac_header)
+        return false;
+    uint8_t type    = (mac_header->frame_control & 0x0c) >> 2;
+    uint8_t subtype = (mac_header->frame_control & 0xf0) >> 4;
+    return (type == 0x00 && (subtype == 0x10 || subtype == 0x0a));
+}
+
 static station_manager sta_manager;
 static if_info measurement_radio_info;
 
@@ -129,11 +138,16 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     const size_t eth_hdr_offset = iter._max_length;
     struct ieee80211_hdr *hdr   = (struct ieee80211_hdr *)(packet + eth_hdr_offset);
 
-    bool sta_was_updated = false;
+    // bool sta_was_updated = false;
     // If we're capturing wildcard source address, or if this is a station of interest to us,
     // parse this packet's radiotap header and update the station objects.
     if (sta_manager.should_capture_all_traffic() ||
         sta_manager.station_is_whitelisted(hdr->addr2)) {
+        if (is_disassoc_or_deauth_frame(hdr)) {
+            printf("STA " MACSTRFMT " has disassociated from BSSID " MACSTRFMT "\n",
+                   MAC2STR(hdr->addr2), MAC2STR(hdr->addr3));
+            sta_manager.add_disassociated_station(hdr->addr2, hdr->addr3);
+        }
         sta_manager.add_station(hdr->addr2);
         radiotap_fields rt_fields = {};
         parse_radiotap_buf(iter, (uint8_t *)packet, radiotap_header_max_size_bytes, rt_fields);
@@ -144,8 +158,8 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
             sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
             sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
             sta_manager.set_bandwidth_for_sta(hdr->addr2, measurement_radio_info.bandwidth);
-            sta_was_updated = true;
-            std::cout << "STA was updated\n";
+            // sta_was_updated = true;
+            // std::cout << "STA was updated\n";
         }
     }
 
@@ -153,16 +167,16 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     // because we care if there's temporally stale RSSI data.
     sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
     // If any station was updated, dump the station table.
-    if (sta_was_updated) {
-        sta_manager.for_each_station([](const station &s) {
-            std::cout << "Station ";
-            printMacToStream(std::cout, s.get_mac().data());
-            std::cout << std::dec << std::endl
-                      << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
-                      << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
-                      << std::endl;
-        });
-    }
+    // if (sta_was_updated) {
+    //     sta_manager.for_each_station([](const station &s) {
+    //         std::cout << "Station ";
+    //         printMacToStream(std::cout, s.get_mac().data());
+    //         std::cout << std::dec << std::endl
+    //                   << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
+    //                   << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
+    //                   << std::endl;
+    //     });
+    // }
 
     return;
 }
