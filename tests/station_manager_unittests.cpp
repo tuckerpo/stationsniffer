@@ -156,6 +156,27 @@ TEST(StationManagerTest, SetBandwidthForStation)
     ASSERT_EQ(retrievedStation->get_bandwidth(), bandwidth);
 }
 
+TEST(StationManagerTest, AddDisassociatedStation)
+{
+    station_manager manager;
+    uint8_t mac[ETH_ALEN]   = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
+    uint8_t bssid[ETH_ALEN] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+
+    manager.add_disassociated_station(mac, bssid);
+
+    // Check if the disassociated station was added
+    const auto disassociated_stations = manager.get_disassociated_stations();
+    const auto it = std::find_if(disassociated_stations.begin(), disassociated_stations.end(),
+                                 [&mac](const auto &sta_bssid_pair) -> bool {
+                                     auto sta = sta_bssid_pair.first;
+                                     return std::memcmp(sta.get_mac().data(), mac, ETH_ALEN) == 0;
+                                 });
+    // The STA is in the disassociated list.
+    ASSERT_TRUE(it != disassociated_stations.end());
+    // The BSSID mapped from STA is correct.
+    ASSERT_TRUE(std::memcmp(it->second.data(), bssid, ETH_ALEN) == 0);
+}
+
 // Define additional tests as needed
 
 int main(int argc, char **argv)

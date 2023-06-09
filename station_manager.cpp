@@ -104,3 +104,17 @@ void station_manager::set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t
         return;
     it->set_bandwidth(new_bw);
 }
+
+void station_manager::add_disassociated_station(const uint8_t mac[ETH_ALEN],
+                                                const uint8_t bssid[ETH_ALEN])
+{
+    std::array<uint8_t, ETH_ALEN> bssid_mac;
+    std::copy_n(bssid, ETH_ALEN, bssid_mac.data());
+    m_disassociated_stations.push_back(std::pair(station(mac), bssid_mac));
+}
+
+std::vector<std::pair<station, std::array<uint8_t, ETH_ALEN>>>
+station_manager::get_disassociated_stations() const
+{
+    return m_disassociated_stations;
+}
