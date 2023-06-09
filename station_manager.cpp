@@ -44,12 +44,15 @@ bool station_manager::should_capture_all_traffic() const
     if (m_whitelisted_macs.empty())
         return false;
 
-    for (const auto &wl_mac : m_whitelisted_macs)
-        for (size_t i = 0; i < m_whitelisted_macs.size(); i++)
-            if (0xff != wl_mac.get_mac()[i])
-                return false;
-    return true;
-};
+    bool is_at_least_one_whitelisted_mac_broadcast = false;
+    for (const auto &wl_mac : m_whitelisted_macs) {
+        if (std::all_of(wl_mac.get_mac().begin(), wl_mac.get_mac().end(),
+                        [](const uint8_t &byte) -> bool { return 0xff == byte; })) {
+            is_at_least_one_whitelisted_mac_broadcast = true;
+        }
+    }
+    return is_at_least_one_whitelisted_mac_broadcast;
+}
 
 void station_manager::register_station_of_interest(const uint8_t sta_mac[ETH_ALEN])
 {

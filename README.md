@@ -1,4 +1,5 @@
 # StationSniffer
+[![Build Status](https://gitlab.com/prpl-foundation/prplmesh/stationSniffer/badges/master/pipeline.svg)](https://gitlab.com/prpl-foundation/prplmesh/stationSniffer/pipelines)
 
 ## Userspace process for sniffing and serving Unassociated Station Link Metrics Statistics
 
