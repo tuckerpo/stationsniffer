@@ -50,18 +50,6 @@ struct ieee80211_hdr {
     unsigned short addr4[ETH_ALEN];
 } __attribute__((packed));
 
-void printMacToStream(std::ostream &os, const unsigned char MACData[])
-{
-    char oldFill = os.fill('0');
-
-    os << std::setw(2) << std::hex << static_cast<unsigned int>(MACData[0]);
-    for (uint i = 1; i < 6; ++i) {
-        os << ':' << std::setw(2) << std::hex << static_cast<unsigned int>(MACData[i]);
-    }
-
-    os.fill(oldFill);
-}
-
 template <typename Callback> static void print_usage_and(Callback cb)
 {
     static constexpr char usage_str[] =
@@ -138,7 +126,6 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     const size_t eth_hdr_offset = iter._max_length;
     struct ieee80211_hdr *hdr   = (struct ieee80211_hdr *)(packet + eth_hdr_offset);
 
-    // bool sta_was_updated = false;
     // If we're capturing wildcard source address, or if this is a station of interest to us,
     // parse this packet's radiotap header and update the station objects.
     if (sta_manager.should_capture_all_traffic() ||
@@ -158,27 +145,12 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
             sta_manager.update_station_rt_fields(hdr->addr2, rt_fields);
             sta_manager.update_station_last_seen(hdr->addr2, pcap_hdr->ts.tv_sec);
             sta_manager.set_bandwidth_for_sta(hdr->addr2, measurement_radio_info.bandwidth);
-            // sta_was_updated = true;
-            // std::cout << "STA was updated\n";
         }
     }
 
     // Have all known stations calculate their WMA even if they have not had recent measurements,
     // because we care if there's temporally stale RSSI data.
     sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
-    // If any station was updated, dump the station table.
-    // if (sta_was_updated) {
-    //     sta_manager.for_each_station([](const station &s) {
-    //         std::cout << "Station ";
-    //         printMacToStream(std::cout, s.get_mac().data());
-    //         std::cout << std::dec << std::endl
-    //                   << " RSSI " << (int)s.get_rssi() << " WMA RSSI " << (int)s.get_wma_rssi()
-    //                   << " CH " << s.get_channel() << " Last Seen " << s.get_last_seen_seconds()
-    //                   << std::endl;
-    //     });
-    // }
-
-    return;
 }
 
 static int begin_packet_loop(pcap_t *pcap_handle, const packet_capture_params &pcap_params,
