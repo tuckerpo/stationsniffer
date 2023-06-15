@@ -28,6 +28,7 @@ public:
      */
     virtual void close();
 
+protected:
     /**
      * @brief Send an NL message to the kernel and get a response.
      * 

@@ -9,7 +9,7 @@ public:
     explicit nl80211_socket(int proto);
     virtual bool connect() override;
 
-    virtual bool send_receive_msg(int command, int flags,
-                                  std::function<bool(struct nl_msg *msg)> msg_create,
-                                  std::function<void(struct nl_msg *msg)> msg_handle);
+    virtual bool send_receive_msg_wrapper(int command, int flags,
+                                          std::function<bool(struct nl_msg *msg)> msg_create,
+                                          std::function<void(struct nl_msg *msg)> msg_handle);
 };

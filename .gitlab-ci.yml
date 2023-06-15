@@ -10,6 +10,7 @@ workflow:
 stages:
   - static_analysis
   - unit_tests
+  - build
 
 clang-format:
   stage: static_analysis
@@ -43,4 +44,20 @@ googletest:
     - cd tests
     - make
     - find . -maxdepth 1 -type f -executable -exec {} \;
+  allow_failure: false
+
+check_build:
+  stage: build
+  before_script:
+    - apt-get update
+    - apt-get install -y git make cmake libnl-3-dev libnl-genl-3-dev libpcap-dev
+  script:
+    - git clone https://github.com/radiotap/radiotap-library.git
+    - cd radiotap-library
+    - mkdir -p .build
+    - cd .build
+    - cmake ..
+    - make -j && make install
+    - cd ../..
+    - make -j
   allow_failure: false
