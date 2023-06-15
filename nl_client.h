@@ -1,6 +1,7 @@
 #pragma once
 #include "nl80211_socket.h"
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -62,7 +62,7 @@ bool nl80211_client_impl::get_interface_info(const std::string &ifname, if_info 
         return false;
     }
 
-    return m_socket->send_receive_msg(
+    return m_socket->send_receive_msg_wrapper(
         NL80211_CMD_GET_INTERFACE, 0,
         [&](struct nl_msg *msg) -> bool {
             nla_put_u32(msg, NL80211_ATTR_IFINDEX, if_idx);
@@ -96,7 +96,7 @@ bool nl80211_client_impl::get_interface_info(const std::string &ifname, if_info 
 
 bool nl80211_client_impl::get_wiphy_bandwidth(if_info &info)
 {
-    return m_socket->send_receive_msg(
+    return m_socket->send_receive_msg_wrapper(
         NL80211_CMD_GET_INTERFACE, NLM_F_DUMP, [](struct nl_msg *msg) -> bool { return true; },
         [&](struct nl_msg *msg) {
             if (info.bandwidth) {
