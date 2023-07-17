@@ -94,3 +94,7 @@ bool station::addr_is_multicast() const
 void station::set_bandwidth(uint8_t bw) { m_bandwidth = bw; }
 
 uint8_t station::get_bandwidth() const { return m_bandwidth; }
+
+uint8_t station::get_vht_mcs_rate() const { return m_rt_fields.vht_mcs_nss_.mcs; }
+
+uint8_t station::get_vht_nss() const { return m_rt_fields.vht_mcs_nss_.nss; }
