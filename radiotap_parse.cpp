@@ -4,11 +4,14 @@
 #include <map>
 #include <vector>
 
+#define BIT(n) (1 << n)
+#define STBC_BIT BIT(0)
+
 /**
  * @brief Convert a sub-WiFi 6 frequency (MHz) to channel number.
- * 
+ *
  * Note: only works for sub-WiFi 6, as the IEEE folks are wrapping channel numbers back to 1 for the 6 GHz band.
- * 
+ *
  * @param freq_ Frequency, in megahertz (MHz)
  * @return int the channel number. Will be zero if the frequency conversion is unknown.
  */
@@ -72,12 +75,15 @@ bandwidth_metadata parse_radiotap_bandwidth(uint8_t radiotap_bw_data)
     return lookup_table[radiotap_bw_data];
 }
 
-vht_mcs_nss parse_radiotap_vht_mcs_nss(uint8_t radiotap_vht_mcs_nss)
+vht_mcs_nss parse_radiotap_vht_mcs_nss(uint8_t radiotap_vht_mcs_nss, uint8_t flags)
 {
     vht_mcs_nss parsed{};
     parsed.nss = radiotap_vht_mcs_nss & 0x0f;
     // Radiotap encodes a decimal MCS index as the high nibble in the MCS/NSS hex field.
     parsed.mcs = (radiotap_vht_mcs_nss & 0xf0) >> 4;
+    // the number of space-time streams (NSTS) for a user can be calculated from the NSS for
+    // that user and the STBC flag:
+    (flags & STBC_BIT) ? (parsed.nsts = (2 * parsed.nss)) : (parsed.nsts = parsed.nss);
     return parsed;
 }
 
@@ -120,9 +126,11 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
         case IEEE80211_RADIOTAP_VHT: {
             std::vector<vht_mcs_nss> vht_mcs_nss_list;
             // u16 known, u8 flags, u8 bandwidth, u8 vht_mcs_nss[4], u8 coding, u8 group_id, u16 partial_aid
-            [[maybe_unused]] uint8_t bw = iter.this_arg[3] & 0x1f;
+            uint8_t bw            = iter.this_arg[3] & 0x1f;
+            rt_fields.bw_metadata = parse_radiotap_bandwidth(bw);
+            uint8_t flags         = iter.this_arg[2];
             for (int i = 4; i < 8; i++) {
-                vht_mcs_nss_list.push_back(parse_radiotap_vht_mcs_nss(iter.this_arg[i]));
+                vht_mcs_nss_list.push_back(parse_radiotap_vht_mcs_nss(iter.this_arg[i], flags));
             }
             for (int i = 0; i < (int)vht_mcs_nss_list.size(); i++) {
                 // If MCS index is zero, there's no data there.
@@ -135,6 +143,8 @@ void parse_radiotap_buf(struct ieee80211_radiotap_iterator &iter, const uint8_t 
         case IEEE80211_RADIOTAP_TSFT:
         case IEEE80211_RADIOTAP_FHSS:
         case IEEE80211_RADIOTAP_DBM_ANTNOISE:
+            rt_fields.ant_noise = (uint8_t)iter.this_arg[0];
+            break;
         case IEEE80211_RADIOTAP_LOCK_QUALITY:
         case IEEE80211_RADIOTAP_TX_ATTENUATION:
         case IEEE80211_RADIOTAP_DB_TX_ATTENUATION:
