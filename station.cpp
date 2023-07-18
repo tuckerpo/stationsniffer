@@ -98,3 +98,5 @@ uint8_t station::get_bandwidth() const { return m_bandwidth; }
 uint8_t station::get_vht_mcs_rate() const { return m_rt_fields.vht_mcs_nss_.mcs; }
 
 uint8_t station::get_vht_nss() const { return m_rt_fields.vht_mcs_nss_.nss; }
+
+uint8_t station::get_ant_noise() const { return m_rt_fields.ant_noise; }

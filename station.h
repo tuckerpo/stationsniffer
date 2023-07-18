@@ -127,4 +127,12 @@ public:
      * @return uint8_t The number of spatial streams if available, else -1.
      */
     uint8_t get_vht_nss() const;
+
+    /**
+     * @brief Get this station's last known antenna noise value, defined as:
+     * RF noise power at the antenna, decibel difference from an arbitrary, fixed reference.
+     *
+     * @return uint8_t The antenna noise value.
+     */
+    uint8_t get_ant_noise() const;
 };
