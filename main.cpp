@@ -52,42 +52,9 @@ struct ieee80211_hdr {
 
 template <typename Callback> static void print_usage_and(Callback cb)
 {
-    static constexpr char usage_str[] =
-        "Usage: ./station-sniffer <interface_name> <packet_wait_time (ms)>";
+    static constexpr char usage_str[] = "Usage: ./station-sniffer <interface_name> ";
     std::cout << usage_str << std::endl;
     cb();
-}
-
-struct packet_capture_params {
-    // how often do we process a packet?
-    uint packet_cadence_ms;
-    // the name of the interface that we're collecting on.
-    std::string device_name;
-};
-
-/**
- * @brief Dump the timestamp types (name, description) that pcap sees that the platform supports to stdout.
- * 
- * For debugging.
- * 
- * @param pd pointer to a pcap_t handle.
- */
-[[maybe_unused]] static void dump_timestamp_types(pcap_t *pd)
-{
-    int *p_timestamp_types = nullptr;
-    int n_timestamp_types  = pcap_list_tstamp_types(pd, &p_timestamp_types);
-    if (n_timestamp_types == PCAP_ERROR) {
-        std::cerr << "Error getting packet timestamping options: " << pcap_geterr(pd);
-        return;
-    }
-    std::cout << n_timestamp_types << " many timestamp types supported" << std::endl;
-    for (int i = 0; i < n_timestamp_types; i++) {
-        std::cout << "Type # " << i << " is " << pcap_tstamp_type_val_to_name(p_timestamp_types[i])
-                  << std::endl;
-        std::cout << "Type # " << i << " description "
-                  << pcap_tstamp_type_val_to_description(p_timestamp_types[i]) << std::endl;
-    }
-    pcap_free_tstamp_types(p_timestamp_types);
 }
 
 static bool is_disassoc_or_deauth_frame(ieee80211_hdr *mac_header)
@@ -153,8 +120,7 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
 }
 
-static int begin_packet_loop(pcap_t *pcap_handle, const packet_capture_params &pcap_params,
-                             pcap_handler callback, int mode)
+static int begin_packet_loop(pcap_t *pcap_handle, pcap_handler callback, int mode)
 {
     return pcap_loop(pcap_handle, mode, callback, (u_char *)pcap_handle);
 }
@@ -163,7 +129,7 @@ int main(int argc, char **argv)
 {
     std::vector<std::thread> threads;
     std::cout << "Welcome to " << argv[0] << std::endl;
-    if (argc < 3)
+    if (argc < 2)
         print_usage_and([]() { exit(1); });
     const int signals_of_interest[2] = {
         SIGINT,
@@ -196,16 +162,15 @@ int main(int argc, char **argv)
     measurement_radio_info.bandwidth = interface_info.bandwidth;
     measurement_radio_info.wiphy     = interface_info.wiphy;
 
-    packet_capture_params pcap_params{(uint)std::stoi(argv[2], 0, 10), capture_ifname};
     char err[PCAP_ERRBUF_SIZE];
-    auto pcap_handle = pcap_create(pcap_params.device_name.c_str(), err);
+    auto pcap_handle = pcap_create(capture_ifname.c_str(), err);
     if (!pcap_handle) {
-        std::cerr << " Could not create a pcap handle for device '" << pcap_params.device_name
+        std::cerr << " Could not create a pcap handle for device '" << capture_ifname
                   << "', err: " << err << std::endl;
         return 1;
     }
     pcap_set_immediate_mode(pcap_handle, 1);
-    std::cout << "Got a handle to device '" << pcap_params.device_name << "'" << std::endl;
+    std::cout << "Got a handle to device '" << capture_ifname << "'" << std::endl;
     int pcap_tstamp_type = PCAP_TSTAMP_HOST;
     int set_tstamp_err   = pcap_set_tstamp_type(pcap_handle, pcap_tstamp_type);
     if (set_tstamp_err != 0) {
@@ -230,8 +195,8 @@ int main(int argc, char **argv)
     }
 
     int ret                 = 0;
-    std::thread pcap_thread = std::thread([&pcap_handle, pcap_params, &ret]() {
-        int loop_status = begin_packet_loop(pcap_handle, pcap_params, packet_cb, 0);
+    std::thread pcap_thread = std::thread([&pcap_handle, &ret]() {
+        int loop_status = begin_packet_loop(pcap_handle, packet_cb, 0);
         if (loop_status != PCAP_ERROR_BREAK) {
             std::cerr << "Unexpected pcap_loop exit code: " << loop_status << std::endl;
             ret = 1;
@@ -270,6 +235,6 @@ int main(int argc, char **argv)
             thr.join();
         }
     }
-    std::cout << "Done sniffing on '" << pcap_params.device_name << "', bye!" << std::endl;
+    std::cout << "Done sniffing on '" << capture_ifname << "', bye!" << std::endl;
     return ret;
 }
