@@ -7,12 +7,6 @@ import time
 from enum import IntEnum
 from struct import pack, unpack
 
-
-class ErrorCodeType(IntEnum):
-    ERROR_CODE_OK = 0x00
-    ERROR_CODE_STA_NOT_FOUND = 0x01
-    ERROR_CODE_BAD_MSG = 0x02
-
 class MessageType(IntEnum):
     MSG_REGISTER_STA = 0x01
     MSG_UNREGISTER_STA = 0x02
