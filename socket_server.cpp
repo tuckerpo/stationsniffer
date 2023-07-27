@@ -50,16 +50,20 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
             perror("poll");
         }
         std::vector<int> clients_to_be_removed;
+        std::vector<int> new_clients{};
         for (auto &pfd : pollfd_vector) {
             if (pfd.revents & POLLIN) {
                 if (pfd.fd == m_server_fd) {
                     // new connection.
                     unsigned sock_len = 0;
-                    int new_conn_fd   = accept(m_server_fd, (sockaddr *)&remote, &sock_len);
+                    // mark new client for insertion to client list outside of
+                    // current iteration (push_back potentially invalidates the
+                    // begin or end iterators if reallocation occurs)
+                    int new_conn_fd = accept(m_server_fd, (sockaddr *)&remote, &sock_len);
                     if (new_conn_fd == -1) {
                         perror("accept");
                     } else {
-                        pollfd_vector.push_back({new_conn_fd, POLLIN, 0});
+                        new_clients.push_back(new_conn_fd);
                         std::cout << "New connection! fd=" << new_conn_fd << std::endl;
                     }
                 } else {
@@ -84,6 +88,13 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
                     }
                 }
             }
+        }
+        if (!new_clients.empty()) {
+            // Add new clients to the poll fd set
+            for (const int &fd : new_clients) {
+                pollfd_vector.push_back({fd, POLLIN, 0});
+            }
+            new_clients.clear();
         }
         // Walk dead clients and remove them from the poll set.
         for (const auto &dead_client_fd : clients_to_be_removed) {
