@@ -54,25 +54,6 @@ static char *err_type_2_str(enum error_type et)
     return "Unknown error type!";
 }
 
-static char *msg_type_2_str(enum message_type mt)
-{
-    switch (mt) {
-    case MSG_REGISTER_STA:
-        return "MSG_REGISTER_STA";
-    case MSG_UNREGISTER_STA:
-        return "MSG_UNREGISTER_STA";
-    case MSG_GET_STA_STATS:
-        return "MSG_GET_STA_STATS";
-    case MSG_GET_STA_WMI_STATS:
-        return "MSG_GET_STA_WMI_STATS";
-    case MSG_CHANGE_KEEPALIVE_TIMEOUT_MS:
-        return "MSG_CHANGE_KEEPALIVE_TIMEOUT_MS";
-    case MSG_CHANGE_PACKET_PERIODICITY_MS:
-        return "MSG_CHANGE_PACKET_PERIODICITY_MS";
-    }
-    return "Unknown message type!";
-}
-
 static void print_usage() { fprintf(stderr, "Usage: ./uds_client <socket_path> <sta_mac>\n"); }
 
 static int validate_mac(uint8_t *buf, size_t len)
@@ -112,7 +93,6 @@ int main(int argc, char **argv)
     printf("%s\n", argv[0]);
     int fd;
     struct sockaddr_un addr;
-    int ret;
     fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
         perror("socket");
@@ -120,7 +100,7 @@ int main(int argc, char **argv)
     }
     char *path    = argv[1];
     char *sta_mac = argv[2];
-    if (validate_mac(sta_mac, strlen(sta_mac)) == -1) {
+    if (validate_mac((uint8_t *)sta_mac, strlen(sta_mac)) == -1) {
         fprintf(stderr, "STA MAC %s seems malformed. Expected format: aa:bb:cc:dd:ee:ff\n",
                 sta_mac);
         return 1;
