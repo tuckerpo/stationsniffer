@@ -2,10 +2,10 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <string.h>
 
 struct sta_lm {
     int32_t error_code;
@@ -57,7 +57,7 @@ static char *err_type_2_str(enum error_type et)
 
 static void print_usage() { fprintf(stderr, "Usage: ./uds_client <socket_path> <sta_mac>\n"); }
 
-static int validate_mac(uint8_t *buf, size_t len)
+static int validate_mac(const uint8_t *const buf, size_t len)
 {
     size_t i;
     size_t hex_count         = 0;
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
             perror("recv");
             return 1;
         }
-        struct sta_lm *link_metrics_response = (struct sta_lm *)rxbuf;
+        const struct sta_lm *const link_metrics_response = (struct sta_lm *)rxbuf;
         if (link_metrics_response->error_code != ERROR_OK) {
             printf("Error code! %d (%s)\n", link_metrics_response->error_code,
                    err_type_2_str(link_metrics_response->error_code));
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
             perror("recv");
             return 1;
         }
-        struct sta_dissasoc_msg *disassoc_msg = (struct sta_dissasoc_msg *)rxbuf;
+        const struct sta_dissasoc_msg *const disassoc_msg = (struct sta_dissasoc_msg *)rxbuf;
         printf("has STA %s disconnected? %d\n", sta_mac, disassoc_msg->disassociated);
     }
 }
