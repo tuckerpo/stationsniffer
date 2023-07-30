@@ -57,7 +57,7 @@ template <typename Callback> static void print_usage_and(Callback cb)
     cb();
 }
 
-static bool is_disassoc_or_deauth_frame(ieee80211_hdr *mac_header)
+static bool is_disassoc_or_deauth_frame(const ieee80211_hdr *const mac_header)
 {
     if (!mac_header)
         return false;
