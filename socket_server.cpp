@@ -98,10 +98,11 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
         }
         // Walk dead clients and remove them from the poll set.
         for (const auto &dead_client_fd : clients_to_be_removed) {
-            auto pollfd_entry_to_remove = std::find_if(pollfd_vector.begin(), pollfd_vector.end(),
-                                                       [&dead_client_fd](pollfd &pollfd_entry) {
-                                                           return pollfd_entry.fd == dead_client_fd;
-                                                       });
+            auto pollfd_entry_to_remove =
+                std::find_if(pollfd_vector.begin(), pollfd_vector.end(),
+                             [&dead_client_fd](const pollfd &pollfd_entry) {
+                                 return pollfd_entry.fd == dead_client_fd;
+                             });
             if (pollfd_entry_to_remove != pollfd_vector.end()) {
                 close(pollfd_entry_to_remove->fd);
                 std::cout << "Removing pollfd entry for dead client, fd="
