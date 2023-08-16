@@ -6,9 +6,11 @@
 [[_TOC_]]
 ### **Building**
 
-You'll need a C++ compiler, `libpcap`, and `libradiotap`
+You'll need a C++ compiler, `libpcap`, `libradiotap`, and `libnl-dev`
 
 ```apt install libpcap-dev```
+
+```apt install libnl-3-dev```
 
 To build and install `libradiotap`:
 
