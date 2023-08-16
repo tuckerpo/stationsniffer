@@ -47,7 +47,7 @@ To find `<your_phy>`, run ```iw dev``` and pick one.
 
 `station-sniffer` has a Unix domain socket server thread running to serve clients. It's found at `/tmp/uslm_socket`
 
-The client should connect to this (stream) socket and make requests there. Requests are made via a minimal binary protocol, the format of which [can be found in messages.h](https://gitlab.com/prpl-foundation/prplmesh/stationsniffer/-/blob/feature/un_sock_ipc/messages.h)
+The client should connect to this (stream) socket and make requests there. Requests are made via a minimal binary protocol, the format of which [can be found in messages.h](https://gitlab.com/prpl-foundation/prplmesh/stationsniffer/-/blob/master/messages.h)
 
 There is a reference client implementation in `tools/test.py` (Python) and `tools/uds_client.c` (C)
 
