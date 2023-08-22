@@ -85,6 +85,27 @@ static int validate_mac(uint8_t *buf, size_t len)
     return 0;
 }
 
+/**
+ * @brief Place a MAC address inside of a binary buffer.
+ *
+ * @param buf The buffer to place the MAC address into.
+ * @param buflen The size of the buffer.
+ * @param macbuf The MAC address, assumed to be 6 bytes.
+ * @param offset The offset into buf to begin placing the MAC addr at.
+ *
+ * Note: null terminates 'buf' at offset + 6 + 1
+ */
+static void fill_mac(unsigned char *buf, size_t buflen, unsigned char *macbuf, size_t offset)
+{
+    int i;
+    for (i = 0; i < 6; i++) {
+        if (offset + i < buflen) {
+            buf[offset + i] = macbuf[i];
+        }
+    }
+    buf[offset + i + 1] = '\0';
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3) {
@@ -119,20 +140,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    int i;
     unsigned char buf[256];
+    /* Offset at which a STA MAC is expected, for all messages, in # of bytes */
+    size_t sta_mac_offset = 4;
     buf[0] = MSG_REGISTER_STA;
     // padding, since message_type is int32
     buf[1] = 0x00;
     buf[2] = 0x00;
     buf[3] = 0x00;
-    // done padding.
-    buf[4]  = mac[0];
-    buf[5]  = mac[1];
-    buf[6]  = mac[2];
-    buf[7]  = mac[3];
-    buf[8]  = mac[4];
-    buf[9]  = mac[5];
-    buf[10] = '\0';
+    fill_mac(buf, sizeof(buf), mac, sta_mac_offset);
 
     if (send(fd, buf, 11, 0) < 0) {
         perror("send");
@@ -156,13 +173,7 @@ int main(int argc, char **argv)
         buf[2] = 0x00;
         buf[3] = 0x00;
         // done padding.
-        buf[4]  = mac[0];
-        buf[5]  = mac[1];
-        buf[6]  = mac[2];
-        buf[7]  = mac[3];
-        buf[8]  = mac[4];
-        buf[9]  = mac[5];
-        buf[10] = '\0';
+        fill_mac(buf, sizeof(buf), mac, sta_mac_offset);
         if (send(fd, buf, 11, 0) < 0) {
             perror("send");
             return 1;
@@ -188,13 +199,7 @@ int main(int argc, char **argv)
         buf[2] = 0x00;
         buf[3] = 0x00;
         // done padding.
-        buf[4]  = mac[0];
-        buf[5]  = mac[1];
-        buf[6]  = mac[2];
-        buf[7]  = mac[3];
-        buf[8]  = mac[4];
-        buf[9]  = mac[5];
-        buf[10] = '\0';
+        fill_mac(buf, sizeof(buf), mac, sta_mac_offset);
         if (send(fd, buf, 11, 0) < 0) {
             perror("send");
             return 1;
