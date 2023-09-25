@@ -89,10 +89,6 @@ bool message_handler::handle_message(const message_request_header &header, int r
         }
         return send_message_response<sta_disassoc_response>(sta_dc_response, request_fd);
     } break;
-    case message_type_t::MSG_CHANGE_PACKET_PERIODICITY_MS:
-        // fall thru
-    case message_type_t::MSG_CHANGE_KEEPALIVE_TIMEOUT_MS:
-        // fall thru
     default: {
         response_error_code = error_code_t::ERROR_BAD_MESSAGE;
         break;

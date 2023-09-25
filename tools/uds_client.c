@@ -28,10 +28,6 @@ enum message_type {
     MSG_GET_STA_STATS = 0x04,
 
     MSG_GET_STA_WMI_STATS = 0x08,
-
-    MSG_CHANGE_KEEPALIVE_TIMEOUT_MS = 0x10,
-
-    MSG_CHANGE_PACKET_PERIODICITY_MS = 0x20,
 };
 
 enum error_type {

@@ -25,18 +25,6 @@ enum class message_type_t : uint32_t {
      * 
      */
     MSG_GET_STA_WMI_STATS = 0x08,
-    /**
-     * @brief Change the global keepalive timeout parameter.
-     * 
-     * The keepalive timeout is the threshold in milliseconds past which we consider a station 'dead' -- not heard from.
-     * 
-     */
-    MSG_CHANGE_KEEPALIVE_TIMEOUT_MS = 0x10,
-    /**
-     * @brief Change how long we buffer packets before processing for. Mostly a tuning parameter for CPU load.
-     * 
-     */
-    MSG_CHANGE_PACKET_PERIODICITY_MS = 0x20,
 
     MSG_GET_DISASSOCIATED_STATIONS = 0x40,
 };
@@ -148,16 +136,10 @@ struct sta_disassoc_response : public response {
     uint8_t bssid[6];
 } __attribute__((packed));
 
-struct periodicity_message : public request {
-    uint32_t periodicity_ms;
-} __attribute__((packed));
-
 static_assert(sizeof(sta_lm) == 16, "sta_lm struct should be 15 bytes (one byte for RSSI, 1 for "
                                     "bandwidth, 2 for channel number, 8 for timestamp)");
 static_assert(
     sizeof(message_request_header) == 14,
     "message_header should be 14 bytes (uint32_t message_type, int8_t mac[6], uint32_t checksum");
-static_assert(sizeof(periodicity_message) == 18,
-              "struct periodicity_message should be 18 bytes long.");
 static_assert(sizeof(sta_wma_lm) == 17, "struct sta_wma_lm should be 17 bytes long");
 #endif // __MESSAGES_H
