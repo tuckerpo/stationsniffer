@@ -25,7 +25,10 @@ enum class message_type_t : uint32_t {
      * 
      */
     MSG_GET_STA_WMI_STATS = 0x08,
-
+    /**
+     * @brief Check if a given STA has disassociated from a BSS.
+     * The STA MAC included in the message header is the station of interest.
+     */
     MSG_GET_DISASSOCIATED_STATIONS = 0x40,
 };
 

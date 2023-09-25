@@ -12,6 +12,7 @@ class MessageType(IntEnum):
     MSG_UNREGISTER_STA = 0x02
     MSG_GET_STA_STATS = 0x04
     MSG_GET_STA_WMI_STATS = 0x08
+    MSG_GET_DISASSOCIATED_STATIONS = 0x40
 
 def connect_and_poll_rssi(socket_path: str, mac: str) -> None:
     trimmed_mac = mac.replace(':', '')

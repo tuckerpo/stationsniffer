@@ -28,6 +28,8 @@ enum message_type {
     MSG_GET_STA_STATS = 0x04,
 
     MSG_GET_STA_WMI_STATS = 0x08,
+
+    MSG_GET_DISASSOCIATED_STATIONS = 0x40,
 };
 
 enum error_type {

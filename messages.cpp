@@ -26,6 +26,8 @@ std::string message_type_to_string(const message_type_t &mt)
         return "MSG_GET_STA_STATS";
     case message_type_t::MSG_GET_STA_WMI_STATS:
         return "MSG_GET_STA_WMI_STATS";
+    case message_type_t::MSG_GET_DISASSOCIATED_STATIONS:
+        return "MSG_GET_DISASSOCIATED_STATIONS";
     default:
         break;
     }
