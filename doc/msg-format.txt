@@ -1,0 +1,88 @@
+station-sniffer operates as a server.
+
+All client requests consist of a request type and a MAC address of interest.
+
+A client request will always be 10 bytes long (int32_t request type, 6 bytes for a MAC addr)
+
+The responses from the server are variable length. The response length is not encoded in the message itself.
+
+Clients need to know the shape and size of the response data structures in order to parse them.
+
+Example:
+
+incoming request packet:
+
+{0x00, 0x00, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+
+^^^^^^^^^^^^^^^^^^^^^^^
+request type 0x04         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                          MAC address aa:bb:cc:dd:ee:ff
+
+The server will parse this and do whatever work is necessary for a request type of 0x04 for something with a MAC address of aa:bb:cc:dd:ee:ff
+
+In this case, request type 0x04 is MSG_GET_STA_STATS -- get PHY link metrics for the MAC address in question.
+
+All responses have shared header details including an error code:
+
+struct message_response_header {
+    error_code_t error_code;
+} __attribute__((packed));
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The header included in every response. This header only contains a uint32_t error code.
+The client should first check this error code, and handle non-ERROR_OK codes appropriately.
+
+The error codes are as follows:
+
+enum class error_code_t : uint32_t {
+    /**
+     * @brief No error! Good to go.
+     *
+     *
+     */
+    ERROR_OK = 0x00,
+    /**
+     * @brief The station that was request to act upon is not known to this Agent.
+     *
+     */
+    ERROR_STA_NOT_KNOWN = 0x01,
+    /**
+     * @brief Client fed us a malformed message.
+     *
+     */
+    ERROR_BAD_MESSAGE = 0x02,
+};
+
+The 'response' type just contains a message_response_header, and serves as a base class for all response types:
+
+struct response {
+    message_response_header response;
+} __attribute__((packed));
+
+
+The response structure specifically to reply to a request type of 0x04 is:
+
+struct sta_wma_lm : public response {
+    int8_t rssi;
+    int16_t channel_number;
+    uint8_t bandwidth;
+    uint64_t timestamp;
+    int8_t wma_rssi;
+} __attribute__((packed));
+
+The entire data flow is:
+
+Client connects to a server socket and makes a request of the form [request_type, mac_addr].
+
+The server parses the request, determines the correct response type, and initializes it.
+
+The server then checks if the mac_addr included in the client request is a known entity.
+
+If not, the response's error code is set to STA_NOT_KNOWN and the response is sent off with default initialized members, modulo the error code.
+
+If the server DOES find the entity with the correct mac_addr, all the correlated response fields are updated, the error code is set to ERROR_OK, and the response is sent.
+
+The server can handle multiple, concurrent connections and queries.
+
+
+
