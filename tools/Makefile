@@ -1,7 +1,7 @@
 appname := uds_client
 
-CXX := gcc
-CXXFLAGS := -Wall
+CXX ?= gcc
+CXXFLAGS += -Wall
 
 srcfiles := $(shell find . -maxdepth 1 -name "*.c")
 objects  := $(patsubst %.c, %.o, $(srcfiles))
