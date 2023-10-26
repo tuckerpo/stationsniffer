@@ -1,7 +1,7 @@
 appname := station-sniffer
 
-CXX := g++
-CXXFLAGS := -Wall -Werror -std=c++17 `pkg-config --cflags libnl-3.0 libnl-genl-3.0`
+CXX ?= g++
+CXXFLAGS += -Wall -Werror -std=c++17 `pkg-config --cflags libnl-3.0 libnl-genl-3.0`
 
 srcfiles := $(shell find . -maxdepth 1 -name "*.cpp")
 objects  := $(patsubst %.cpp, %.o, $(srcfiles))
