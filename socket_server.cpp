@@ -12,35 +12,15 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-socket_server::socket_server(message_handler &msg_handler)
-    : m_message_handler(msg_handler), m_server_fd(-1)
+socket_server_abc::socket_server_abc(message_handler &msg_handler)
+    : m_server_fd(-1), m_message_handler(msg_handler)
 {
 }
 
-socket_server::~socket_server() { stop_serving(); }
-
-bool socket_server::begin_serving(const std::string &path, bool &keep_running)
+bool socket_server_abc::begin_serving(bool &keep_running)
 {
-    static constexpr int listen_backlog = 10;
-
-    sockaddr_un remote = {0};
-    sockaddr_un local  = {0};
-    m_server_fd        = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (m_server_fd == -1) {
-        perror("socket");
+    if (!socket_init())
         return false;
-    }
-    local.sun_family = AF_UNIX;
-    std::strncpy(local.sun_path, path.c_str(), path.length());
-    unlink(path.c_str());
-    if (bind(m_server_fd, (sockaddr *)&local, sizeof(local)) < 0) {
-        perror("bind");
-        return false;
-    }
-    if (listen(m_server_fd, listen_backlog) < 0) {
-        perror("listen");
-        return false;
-    }
     std::vector<pollfd> pollfd_vector;
     // Add the server pollfd to the set.
     pollfd_vector.push_back({m_server_fd, POLLIN, 0});
@@ -55,11 +35,10 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
             if (pfd.revents & POLLIN) {
                 if (pfd.fd == m_server_fd) {
                     // new connection.
-                    unsigned sock_len = 0;
                     // mark new client for insertion to client list outside of
                     // current iteration (push_back potentially invalidates the
                     // begin or end iterators if reallocation occurs)
-                    int new_conn_fd = accept(m_server_fd, (sockaddr *)&remote, &sock_len);
+                    int new_conn_fd = accept();
                     if (new_conn_fd == -1) {
                         perror("accept");
                     } else {
@@ -110,12 +89,89 @@ bool socket_server::begin_serving(const std::string &path, bool &keep_running)
             }
         }
     }
-    return stop_serving();
+    return true;
 }
 
-bool socket_server::stop_serving()
+uds_socket_server::uds_socket_server(const std::string &unix_socket_path,
+                                     message_handler &msg_handler)
+    : socket_server_abc(msg_handler), m_unix_socket_path(unix_socket_path)
+{
+    m_remote = {0};
+}
+
+uds_socket_server::~uds_socket_server() { stop_serving(); }
+
+bool uds_socket_server::socket_init()
+{
+    static constexpr int listen_backlog = 10;
+
+    sockaddr_un local = {0};
+    m_server_fd       = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (m_server_fd == -1) {
+        perror("socket");
+        return false;
+    }
+    local.sun_family = AF_UNIX;
+    std::strncpy(local.sun_path, m_unix_socket_path.c_str(), m_unix_socket_path.length());
+    unlink(m_unix_socket_path.c_str());
+    if (bind(m_server_fd, (sockaddr *)&local, sizeof(local)) < 0) {
+        perror("bind");
+        return false;
+    }
+    if (listen(m_server_fd, listen_backlog) < 0) {
+        perror("listen");
+        return false;
+    }
+    std::cout << "UDS server listening at " << m_unix_socket_path << std::endl;
+    return m_server_fd != -1;
+}
+
+int uds_socket_server::accept()
+{
+    socklen_t sock_len;
+    return ::accept(m_server_fd, (sockaddr *)&m_remote, &sock_len);
+}
+
+bool uds_socket_server::stop_serving()
 {
     if (m_server_fd != -1)
         close(m_server_fd);
     return true;
+}
+
+socket_server_tcp::socket_server_tcp(int port, message_handler &msg_handler)
+    : socket_server_abc(msg_handler), m_port(port)
+{
+    m_remote = {0};
+}
+
+int socket_server_tcp::accept()
+{
+    socklen_t sock_len;
+    return ::accept(m_server_fd, (struct sockaddr *)&m_remote, &sock_len);
+}
+
+bool socket_server_tcp::socket_init()
+{
+    static constexpr int listen_backlog = 10;
+
+    sockaddr_in local = {0};
+    m_server_fd       = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_server_fd == -1) {
+        perror("socket");
+        return false;
+    }
+    local.sin_family      = AF_INET;
+    local.sin_addr.s_addr = INADDR_ANY;
+    local.sin_port        = m_port;
+    if (bind(m_server_fd, (sockaddr *)&local, sizeof(local)) < 0) {
+        perror("bind");
+        return false;
+    }
+    if (listen(m_server_fd, listen_backlog) < 0) {
+        perror("listen");
+        return false;
+    }
+    std::cout << "TCP server listening on port " << m_port << std::endl;
+    return m_server_fd != -1;
 }
