@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <iostream>
 #include <linux/netlink.h>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -205,15 +206,18 @@ int main(int argc, char **argv)
         stay_alive = false;
     });
     threads.push_back(std::move(pcap_thread));
-    // now, start the unix socket IPC thread.
     const std::string socket_server_path = "/tmp/uslm_socket";
     message_handler the_message_handler(sta_manager);
-    std::thread unix_socket_server_thread =
-        std::thread([&socket_server_path, &the_message_handler]() {
-            socket_server uds_server(the_message_handler);
-            uds_server.begin_serving(socket_server_path, stay_alive);
-        });
-    threads.push_back(std::move(unix_socket_server_thread));
+    std::vector<std::unique_ptr<socket_server_abc>> socket_servers;
+    socket_servers.emplace_back(
+        std::make_unique<uds_socket_server>(socket_server_path, the_message_handler));
+    socket_servers.emplace_back(std::make_unique<socket_server_tcp>(886, the_message_handler));
+    // Begin each socket server on it's own thread.
+    for (const auto &socket_server : socket_servers) {
+        std::thread socket_server_thread =
+            std::thread([&socket_server]() { socket_server->begin_serving(stay_alive); });
+        threads.push_back(std::move(socket_server_thread));
+    }
 
     if (!measurement_radio_info.bandwidth) {
         std::thread bandwidth_thread = std::thread([&netlink_client]() {
