@@ -25,11 +25,31 @@ enum class message_type_t : uint32_t {
      * 
      */
     MSG_GET_STA_WMI_STATS = 0x08,
+
+    /**
+     * @brief Get the traffic stats for a given station.
+     *
+     */
+    MSG_GET_TRAFFIC_STATS = 0x10,
+
+    /**
+     * @brief Get the size (width) of a bucket.
+     *
+     */
+    MSG_GET_TRAFFIC_STATS_BUCKET_SIZE = 0x20,
+
     /**
      * @brief Check if a given STA has disassociated from a BSS.
      * The STA MAC included in the message header is the station of interest.
      */
     MSG_GET_DISASSOCIATED_STATIONS = 0x40,
+
+    /**
+     * @brief Adjust the width of the bucket for a station.
+     *
+     */
+    MSG_ADJUST_TRAFFIC_STATS_BUCKET_SIZE = 0x80,
+
 };
 
 enum class error_code_t : uint32_t {
