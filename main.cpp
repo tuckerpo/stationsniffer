@@ -66,6 +66,14 @@ static bool is_disassoc_or_deauth_frame(ieee80211_hdr *mac_header)
     return (type == 0x00 && (subtype == 0x10 || subtype == 0x0a));
 }
 
+// B3..B2 == 0b10 for data frames of all subtypes.
+[[maybe_unused]] static bool is_data_frame(ieee80211_hdr *mac_header)
+{
+    if (!mac_header)
+        return false;
+    return ((mac_header->frame_control & 0x0c) >> 2 == 0x01);
+}
+
 static station_manager sta_manager;
 static if_info measurement_radio_info;
 
