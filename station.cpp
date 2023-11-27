@@ -1,6 +1,8 @@
 #include "station.h"
 #include <algorithm>
 #include <cstring>
+#include <iostream>
+#include <sstream>
 
 station::station(uint8_t mac[ETH_ALEN])
 {
@@ -100,3 +102,57 @@ uint8_t station::get_vht_mcs_rate() const { return m_rt_fields.vht_mcs_nss_.mcs;
 uint8_t station::get_vht_nss() const { return m_rt_fields.vht_mcs_nss_.nss; }
 
 uint8_t station::get_ant_noise() const { return m_rt_fields.ant_noise; }
+
+bool station::measurement_period_elapsed() const
+{
+    time_t now   = std::time(nullptr);
+    time_t delta = now - get_last_seen_seconds();
+    fprintf(stdout, "Delta=%ld, period=%ld, last_seen=%ld\n", delta, m_bits_collection_period,
+            get_last_seen_seconds());
+    return delta >= m_bits_collection_period;
+}
+
+void station::bucketize_measurements()
+{
+    m_traffic_stat.n_inbound_bits_per_period  = m_traffic_stat.inbound_bytes * 8;
+    m_traffic_stat.n_outbound_bits_per_period = m_traffic_stat.outbound_bytes * 8;
+    m_traffic_stat.collection_period          = m_bits_collection_period;
+    m_traffic_stats.push_back(m_traffic_stat);
+    // Reset after it's been added to the list.
+    m_traffic_stat = {0};
+}
+
+time_t station::get_measurement_period() const { return m_bits_collection_period; }
+
+void station::dump_station_stats(const std::string &filename) const
+{
+    if (filename.empty())
+        return;
+    FILE *f = fopen(filename.c_str(), "ab+");
+    if (!f) {
+        std::cerr << "Could not open '" << filename << "'" << std::endl;
+        return;
+    }
+    std::stringstream ss{};
+    fprintf(f, "period,inbound_bits,outbound_bits\n");
+
+    for (const auto &traffic_stat : m_traffic_stats) {
+        fprintf(f, "%ld,%ld,%ld\n", traffic_stat.collection_period,
+                traffic_stat.n_inbound_bits_per_period, traffic_stat.n_outbound_bits_per_period);
+    }
+
+    fclose(f);
+}
+
+void station::add_bytes(size_t n_bytes, traffic_direction_t direction) {
+    switch (direction) {
+        case traffic_direction_t::INBOUND:
+            m_traffic_stat.inbound_bytes += n_bytes;
+            break;
+        case traffic_direction_t::OUTBOUND:
+            m_traffic_stat.outbound_bytes += n_bytes;
+            break;
+        case traffic_direction_t::UNKNOWN:
+            break;
+    }
+}

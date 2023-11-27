@@ -152,7 +152,8 @@ struct sta_wma_lm : public response {
     int8_t wma_rssi;
 } __attribute__((packed));
 
-struct sta_diassoc_query : public request {};
+struct sta_diassoc_query : public request {
+};
 
 struct sta_disassoc_response : public response {
     uint8_t disassociated;

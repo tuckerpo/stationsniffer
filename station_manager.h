@@ -155,6 +155,15 @@ public:
     get_disassociated_stations() const;
 
     /**
+     * @brief Add traffic bytes for a STA
+     * 
+     * @param mac The STA MAC.
+     * @param n_bytes The number of bytes.
+     * @param td The direction of the traffic (inbound or outbound)
+     */
+    void add_bytes_for_sta(const uint8_t mac[ETH_ALEN], size_t n_bytes, traffic_direction_t td);
+
+    /**
      * @brief Calls 'Callback' on every station, immutable.
      *
      * @tparam Callback the callback to call on every station known to the station manager.

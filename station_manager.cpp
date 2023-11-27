@@ -105,6 +105,17 @@ void station_manager::set_bandwidth_for_sta(const uint8_t mac[ETH_ALEN], uint8_t
     it->set_bandwidth(new_bw);
 }
 
+void station_manager::add_bytes_for_sta(const uint8_t mac[ETH_ALEN], size_t n_bytes, traffic_direction_t direction)
+{
+    auto lock = std::lock_guard<decltype(m_station_lock)>(m_station_lock);
+    auto it   = std::find_if(m_stations.begin(), m_stations.end(), [mac](const station &s) -> bool {
+        return std::memcmp(s.get_mac().data(), mac, ETH_ALEN) == 0;
+    });
+    if (it == m_stations.end())
+        return;
+    it->add_bytes(n_bytes, direction);
+}
+
 void station_manager::add_disassociated_station(const uint8_t mac[ETH_ALEN],
                                                 const uint8_t bssid[ETH_ALEN])
 {

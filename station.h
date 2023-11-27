@@ -12,11 +12,32 @@
  */
 constexpr size_t ETH_ALEN = 6;
 
+struct time_bucket_traffic_stats {
+    time_t collection_period;
+    size_t inbound_bytes;
+    size_t outbound_bytes;
+    size_t n_inbound_bits_per_period;
+    size_t n_outbound_bits_per_period;
+};
+
+enum class traffic_direction_t : uint8_t {
+    UNKNOWN,
+    INBOUND,
+    OUTBOUND,
+};
+
 class station {
     radiotap_fields m_rt_fields;
     std::array<uint8_t, ETH_ALEN> m_mac;
     int8_t m_rssi_wma;
     time_t m_last_seen_time;
+    /**
+     * @brief The periodicity of measuring bits.
+     */
+    time_t m_bits_collection_period = time_t(1000);
+
+    std::vector<time_bucket_traffic_stats> m_traffic_stats;
+    time_bucket_traffic_stats m_traffic_stat;
     // the end of this vector will contain the most recent instantaneous measurement.
     std::vector<rssi_measurement> m_rssi_measurements;
     uint8_t m_bandwidth;
@@ -135,4 +156,21 @@ public:
      * @return uint8_t The antenna noise value.
      */
     uint8_t get_ant_noise() const;
+
+    bool measurement_period_elapsed() const;
+
+    void bucketize_measurements();
+
+    time_t get_measurement_period() const;
+
+    void dump_station_stats(const std::string &filename) const;
+
+    /**
+     * @brief Add number of bytes this station has done.
+     * 
+     * @param n_bytes Number of bytes.
+     * @param td The direction of the traffic flow (inbound or outbound)
+     * TODO: handle overflow for large numbers of bytes
+     */
+    void add_bytes(size_t n_bytes, traffic_direction_t td);
 };

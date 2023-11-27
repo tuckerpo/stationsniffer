@@ -67,11 +67,16 @@ static bool is_disassoc_or_deauth_frame(ieee80211_hdr *mac_header)
 }
 
 // B3..B2 == 0b10 for data frames of all subtypes.
-[[maybe_unused]] static bool is_data_frame(ieee80211_hdr *mac_header)
+static bool is_data_frame(ieee80211_hdr *mac_header)
 {
     if (!mac_header)
         return false;
     return ((mac_header->frame_control & 0x0c) >> 2 == 0x01);
+}
+
+static traffic_direction_t get_traffic_direction() {
+    fprintf(stderr, "%s - NOT IMPLEMENTED!\n", __func__);
+    return traffic_direction_t::UNKNOWN;
 }
 
 static station_manager sta_manager;
@@ -111,6 +116,16 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
             sta_manager.add_disassociated_station(hdr->addr2, hdr->addr3);
         }
         sta_manager.add_station(hdr->addr2);
+        if (is_data_frame(hdr) && sta_manager.station_is_whitelisted(hdr->addr2)) {
+            // TODO: pcap header "len" field is "off the wire" -- WTF does that mean?
+            fprintf(stdout, "Data frame from STA " MACSTRFMT " contains %d bytes (%d bits)\n",
+                    MAC2STR(hdr->addr2), pcap_hdr->len, pcap_hdr->len * 8);
+            sta_manager.add_bytes_for_sta(hdr->addr2, pcap_hdr->caplen, get_traffic_direction());
+        }
+        sta_manager.add_station(hdr->addr2);
+        sta_manager.add_bytes_for_sta(hdr->addr2, pcap_hdr->caplen, get_traffic_direction());
+        sta_manager.for_each_station_mutable(
+            [](station &s) -> void { s.bucketize_measurements(); });
         radiotap_fields rt_fields = {};
         parse_radiotap_buf(iter, (uint8_t *)packet, radiotap_header_max_size_bytes, rt_fields);
 
@@ -126,6 +141,38 @@ static void packet_cb(u_char *args, const struct pcap_pkthdr *pcap_hdr, const u_
     // Have all known stations calculate their WMA even if they have not had recent measurements,
     // because we care if there's temporally stale RSSI data.
     sta_manager.for_each_station_mutable([](station &s) { s.calculate_wma(); });
+}
+
+static void sta_throughput_measurement_thread(station_manager *sta_manager, bool &keep_alive)
+{
+    if (!sta_manager)
+        return;
+    // TODO: change thread sleep resolution to LCD of all station measurement periods, but clamp at 10ms
+    while (keep_alive) {
+        sta_manager->for_each_station_mutable([](station &s) {
+            if (s.measurement_period_elapsed()) {
+                fprintf(stdout,
+                        "Bucketizing measurements for STA " MACSTRFMT " due to timer elapsing\n",
+                        MAC2STR(s.get_mac().data()));
+                s.bucketize_measurements();
+            }
+        });
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::cout << "Flushing station traffic stats" << std::endl;
+    // When we're done, dump all station traffic statistics to a .csv
+    sta_manager->for_each_station([](const station &s) {
+        // Skip wildcard address
+        uint8_t broadcast_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        if (memcmp(s.get_mac().data(), broadcast_mac, ETH_ALEN) == 0)
+            return;
+        // Build file name
+        std::string stats_fname = "sta_";
+        for (const auto &byte : s.get_mac())
+            stats_fname += std::to_string(byte);
+        stats_fname += ".csv";
+        s.dump_station_stats(stats_fname);
+    });
 }
 
 static int begin_packet_loop(pcap_t *pcap_handle, pcap_handler callback, int mode)
@@ -235,6 +282,10 @@ int main(int argc, char **argv)
         });
         threads.push_back(std::move(bandwidth_thread));
     }
+
+    std::thread sta_bps_measurement_thread =
+        std::thread([]() { sta_throughput_measurement_thread(&sta_manager, stay_alive); });
+    threads.push_back(std::move(sta_bps_measurement_thread));
 
     for (std::thread &thr : threads) {
         if (!thr.joinable()) {
