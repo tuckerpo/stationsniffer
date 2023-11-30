@@ -27,13 +27,6 @@ station::station(const std::array<uint8_t, ETH_ALEN> &mac) : m_mac(mac)
 std::array<uint8_t, ETH_ALEN> station::get_mac() const { return m_mac; }
 
 int8_t station::get_rssi() const { return m_rt_fields.rssi; }
-// second nibble of MSB of MAC being 2, E, A or 6 seems to indicate mac randomization (which is canonically only implemented by mobile stations)
-
-bool station::is_potentially_mobile() const
-{
-    return ((get_mac()[0] & 0x0f) == 0x0A) || ((get_mac()[0] & 0x0f) == 0x0E) ||
-           ((get_mac()[0] & 0x0f) == 0x06) || ((get_mac()[0] & 0x0f) == 0x02);
-}
 
 void station::update_rt_fields(const radiotap_fields &rt_f)
 {
