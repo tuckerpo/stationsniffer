@@ -40,17 +40,6 @@ public:
     int8_t get_rssi() const;
 
     /**
-     * @brief Returns whether or not this station is _likely_ a mobile station (i.e. a cell phone, a laptop, tablet, etc)
-     *
-     * The second nibble of the MSB of a station's MAC address being one of [0x2, 0xE, 0xA, 0x6] seems to indicate MAC randomization on the station.
-     * Canonically, MAC randomization is only implemented for mobile stations, mostly phones.
-     *
-     * @return true if this station is likely a mobile station.
-     * @return false otherwise.
-     */
-    bool is_potentially_mobile() const;
-
-    /**
      * @brief Update this station's parsed radiotap fields
      *
      * @param rt_f The radiotap fields to read from.
